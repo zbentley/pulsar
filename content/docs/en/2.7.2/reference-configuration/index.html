@@ -308,6 +308,7 @@
 <tr><td>exposePreciseBacklogInPrometheus</td><td>Enable expose the precise backlog stats, set false to use published counter and consumed counter to calculate, this would be more efficient but may be inaccurate.</td><td>false</td></tr>
 <tr><td>schemaRegistryStorageClassName</td><td>The schema storage implementation used by this broker.</td><td>org.apache.pulsar.broker.service.schema.BookkeeperSchemaStorageFactory</td></tr>
 <tr><td>isSchemaValidationEnforced</td><td>Enforce schema validation on following cases: if a producer without a schema attempts to produce to a topic with schema, the producer will be failed to connect. PLEASE be carefully on using this, since non-java clients don't support schema. If this setting is enabled, then non-java clients fail to produce.</td><td>false</td></tr>
+<tr><td>topicFencingTimeoutSeconds</td><td>If a topic remains fenced for a certain time period (in seconds), it is closed forcefully. If set to 0 or a negative number, the fenced topic is not closed.</td><td>0</td></tr>
 <tr><td>offloadersDirectory</td><td>The directory for all the offloader implementations.</td><td>./offloaders</td></tr>
 <tr><td>bookkeeperMetadataServiceUri</td><td>Metadata service uri that bookkeeper is used for loading corresponding metadata driver and resolving its metadata service location. This value can be fetched using <code>bookkeeper shell whatisinstanceid</code> command in BookKeeper cluster. For example: <a href="zk+hierarchical://localhost:2181/ledgers">zk+hierarchical://localhost:2181/ledgers</a>. The metadata service uri list can also be semicolon separated values like below: <a href="zk+hierarchical://zk1:2181">zk+hierarchical://zk1:2181</a>;zk2:2181;zk3:2181/ledgers</td><td></td></tr>
 <tr><td>bookkeeperClientAuthenticationPlugin</td><td>Authentication plugin to use when connecting to bookies</td><td></td></tr>
@@ -615,8 +616,8 @@
 <tr><td>brokerClientTlsProtocols</td><td>Specify the TLS protocols that the broker uses to negotiate during TLS handshake.</td><td></td></tr>
 <tr><td>systemTopicEnabled</td><td>Enable/Disable system topics.</td><td>false</td></tr>
 <tr><td>topicLevelPoliciesEnabled</td><td>Enable or disable topic level policies. Topic level policies depends on the system topic. Please enable the system topic first.</td><td>false</td></tr>
+<tr><td>topicFencingTimeoutSeconds</td><td>If a topic remains fenced for a certain time period (in seconds), it is closed forcefully. If set to 0 or a negative number, the fenced topic is not closed.</td><td>0</td></tr>
 <tr><td>proxyRoles</td><td>Role names that are treated as &quot;proxy roles&quot;. If the broker sees a request with role as proxyRoles, it demands to see a valid original principal.</td><td></td></tr>
-<tr><td>authenticateOriginalAuthData</td><td>If this flag is set, the broker authenticates the original Auth data. Otherwise, it just accepts the originalPrincipal and authorizes it (if required).</td><td>false</td></tr>
 <tr><td>authenticationEnabled</td><td>Enable authentication for the broker.</td><td>false</td></tr>
 <tr><td>authenticationProviders</td><td>A comma-separated list of class names for authentication providers.</td><td>false</td></tr>
 <tr><td>authorizationEnabled</td><td>Enforce authorization in brokers.</td><td>false</td></tr>

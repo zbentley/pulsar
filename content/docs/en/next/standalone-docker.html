@@ -87,6 +87,7 @@
 <li>The data, metadata, and configuration are persisted on Docker volumes in order to not start &quot;fresh&quot; every
 time the container is restarted. For details on the volumes you can use <code>docker volume inspect &lt;sourcename&gt;</code></li>
 <li>For Docker on Windows make sure to configure it to use Linux containers</li>
+<li>The docker container will run as UID 10000 and GID 0, by default. You'll need to ensure the mounted volumes give write permission to either UID 10000 or GID 0. Note that UID 10000 is arbitrary, so it is recommended to make these mounts writable for the root group (GID 0).</li>
 </ul>
 <p>If you start Pulsar successfully, you will see <code>INFO</code>-level log messages like this:</p>
 <pre><code class="hljs"><span class="hljs-number">08</span>:<span class="hljs-number">18</span>:<span class="hljs-number">30.970</span> [main] INFO  org<span class="hljs-selector-class">.apache</span><span class="hljs-selector-class">.pulsar</span><span class="hljs-selector-class">.broker</span><span class="hljs-selector-class">.web</span><span class="hljs-selector-class">.WebService</span> - HTTP Service started at http:<span class="hljs-comment">//0.0.0.0:8080</span>
