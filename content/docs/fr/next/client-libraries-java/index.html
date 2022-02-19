@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="fr"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Pulsar Java client · Apache Pulsar</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="You can use a Pulsar Java client to create the Java [producer](#producer), [consumer](#consumer), and [readers](#reader) of messages and to perform [administrative tasks](/docs/fr/next/admin-api-overview). The current Java client version is **2.9.1**."/><meta name="docsearch:version" content="next"/><meta name="docsearch:language" content="fr"/><meta property="og:title" content="Pulsar Java client · Apache Pulsar"/><meta property="og:type" content="website"/><meta property="og:url" content="https://pulsar.apache.org/"/><meta property="og:description" content="You can use a Pulsar Java client to create the Java [producer](#producer), [consumer](#consumer), and [readers](#reader) of messages and to perform [administrative tasks](/docs/fr/next/admin-api-overview). The current Java client version is **2.9.1**."/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://pulsar.apache.org/img/pulsar.svg"/><link rel="shortcut icon" href="/img/pulsar.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/atom-one-dark.min.css"/><link rel="alternate" type="application/atom+xml" href="https://pulsar.apache.org/blog/atom.xml" title="Apache Pulsar Blog ATOM Feed"/><link rel="alternate" type="application/rss+xml" href="https://pulsar.apache.org/blog/feed.xml" title="Apache Pulsar Blog RSS Feed"/><script>
+<!DOCTYPE html><html lang="fr"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Pulsar Java client · Apache Pulsar</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="You can use a Pulsar Java client to create the Java [producer](#producer), [consumer](#consumer), [readers](#reader) and [TableView](#tableview) of messages and to perform [administrative tasks](/docs/fr/next/admin-api-overview). The current Java client version is **2.9.1**."/><meta name="docsearch:version" content="next"/><meta name="docsearch:language" content="fr"/><meta property="og:title" content="Pulsar Java client · Apache Pulsar"/><meta property="og:type" content="website"/><meta property="og:url" content="https://pulsar.apache.org/"/><meta property="og:description" content="You can use a Pulsar Java client to create the Java [producer](#producer), [consumer](#consumer), [readers](#reader) and [TableView](#tableview) of messages and to perform [administrative tasks](/docs/fr/next/admin-api-overview). The current Java client version is **2.9.1**."/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://pulsar.apache.org/img/pulsar.svg"/><link rel="shortcut icon" href="/img/pulsar.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/atom-one-dark.min.css"/><link rel="alternate" type="application/atom+xml" href="https://pulsar.apache.org/blog/atom.xml" title="Apache Pulsar Blog ATOM Feed"/><link rel="alternate" type="application/rss+xml" href="https://pulsar.apache.org/blog/feed.xml" title="Apache Pulsar Blog RSS Feed"/><script>
               (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
               (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
               m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
@@ -74,8 +74,8 @@
                 };
               }
             });
-        </script></nav></div><div class="container mainContainer docsContainer"><div class="wrapper"><div class="post"><header class="postHeader"><a class="edit-page-link button" href="https://crowdin.com/project/apache-pulsar/fr" target="_blank" rel="noreferrer noopener">Translate</a><h1 id="__docusaurus" class="postHeaderTitle">Pulsar Java client</h1></header><article><div><span><p>You can use a Pulsar Java client to create the Java <a href="#producer">producer</a>, <a href="#consumer">consumer</a>, and <a href="#reader">readers</a> of messages and to perform <a href="/docs/fr/next/admin-api-overview">administrative tasks</a>. The current Java client version is <strong>2.9.1</strong>.</p>
-<p>All the methods in <a href="#producer">producer</a>, <a href="#consumer">consumer</a>, and <a href="#reader">reader</a> of a Java client are thread-safe.</p>
+        </script></nav></div><div class="container mainContainer docsContainer"><div class="wrapper"><div class="post"><header class="postHeader"><a class="edit-page-link button" href="https://crowdin.com/project/apache-pulsar/fr" target="_blank" rel="noreferrer noopener">Translate</a><h1 id="__docusaurus" class="postHeaderTitle">Pulsar Java client</h1></header><article><div><span><p>You can use a Pulsar Java client to create the Java <a href="#producer">producer</a>, <a href="#consumer">consumer</a>, <a href="#reader">readers</a> and <a href="#tableview">TableView</a> of messages and to perform <a href="/docs/fr/next/admin-api-overview">administrative tasks</a>. The current Java client version is <strong>2.9.1</strong>.</p>
+<p>All the methods in <a href="#producer">producer</a>, <a href="#consumer">consumer</a>, <a href="#reader">readers</a> and <a href="#tableview">TableView</a> of a Java client are thread-safe.</p>
 <p>Javadoc for the Pulsar client is divided into two domains by package as follows.</p>
 <table>
 <thead>
@@ -186,6 +186,182 @@ key1:val1,key2:val2|None <code>operationTimeoutMs</code>|long|<code>operationTim
 -Dpulsar.allocator.leak_detection=Disabled
 -Dpulsar.allocator.out_of_memory_policy=ThrowException
 </code></pre>
+<h3><a class="anchor" aria-hidden="true" id="cluster-level-failover"></a><a href="#cluster-level-failover" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Cluster-level failover</h3>
+<p>This chapter describes the concept, benefits, use cases, constraints, usage, working principles, and more information about the cluster-level failover. It contains the following sections:</p>
+<ul>
+<li><p><a href="#what-is-cluster-level-failover">What is cluster-level failover?</a></p>
+<ul>
+<li><p><a href="#concept-of-cluster-level-failover">Concept of cluster-level failover</a></p></li>
+<li><p><a href="#why-use-cluster-level-failover">Why use cluster-level failover?</a></p></li>
+<li><p><a href="#when-to-use-cluster-level-failover">When to use cluster-level failover?</a></p></li>
+<li><p><a href="#when-cluster-level-failover-is-triggered">When cluster-level failover is triggered?</a></p></li>
+<li><p><a href="#why-does-cluster-level-failover-fail">Why does cluster-level failover fail?</a></p></li>
+<li><p><a href="#what-are-the-limitations-of-cluster-level-failover">What are the limitations of cluster-level failover?</a></p></li>
+<li><p><a href="#what-are-the-relationships-between-cluster-level-failover-and-geo-replication">What are the relationships between cluster-level failover and geo-replication?</a></p></li>
+</ul></li>
+<li><p><a href="#how-to-use-cluster-level-failover">How to use cluster-level failover?</a></p></li>
+<li><p><a href="#how-does-cluster-level-failover-work">How does cluster-level failover work?</a></p></li>
+</ul>
+<blockquote>
+<h4><a class="anchor" aria-hidden="true" id="what-is-cluster-level-failover"></a><a href="#what-is-cluster-level-failover" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>What is cluster-level failover</h4>
+</blockquote>
+<p>This chapter helps you better understand the concept of cluster-level failover.</p>
+<blockquote>
+<h5><a class="anchor" aria-hidden="true" id="concept-of-cluster-level-failover"></a><a href="#concept-of-cluster-level-failover" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Concept of cluster-level failover</h5>
+</blockquote>
+<div class="tabs"><div class="nav-tabs"><div id="tab-group-2458-tab-2459" class="nav-link active" data-group="group_2458" data-tab="tab-group-2458-content-2459">Automatic cluster-level failover</div><div id="tab-group-2458-tab-2460" class="nav-link" data-group="group_2458" data-tab="tab-group-2458-content-2460">Controlled cluster-level failover</div></div><div class="tab-content"><div id="tab-group-2458-content-2459" class="tab-pane active" data-group="group_2458" tabindex="-1"><div><span><p>Automatic cluster-level failover supports Pulsar clients switching from a primary cluster to one or several backup clusters automatically and seamlessly when it detects a failover event based on the configured detecting policy set by <strong>users</strong>.</p>
+<p><img src="/docs/assets/cluster-level-failover-1.png" alt="Automatic cluster-level failover"></p>
+</span></div></div><div id="tab-group-2458-content-2460" class="tab-pane" data-group="group_2458" tabindex="-1"><div><span><p>Controlled cluster-level failover supports Pulsar clients switching from a primary cluster to one or several backup clusters. The switchover is manually set by <strong>administrators</strong>.</p>
+<p><img src="/docs/assets/cluster-level-failover-2.png" alt="Controlled cluster-level failover"></p>
+</span></div></div></div></div>
+<p>Once the primary cluster functions again, Pulsar clients can switch back to the primary cluster. Most of the time users won’t even notice a thing. Users can keep using applications and services without interruptions or timeouts.</p>
+<blockquote>
+<h5><a class="anchor" aria-hidden="true" id="why-use-cluster-level-failover"></a><a href="#why-use-cluster-level-failover" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Why use cluster-level failover?</h5>
+</blockquote>
+<p>The cluster-level failover provides fault tolerance, continuous availability, and high availability together. It brings a number of benefits, including but not limited to:</p>
+<ul>
+<li><p>Reduced cost: services can be switched and recovered automatically with no data loss.</p></li>
+<li><p>Simplified management: businesses can operate on an “always-on” basis since no immediate user intervention is required.</p></li>
+<li><p>Improved stability and robustness: it ensures continuous performance and minimizes service downtime.</p></li>
+</ul>
+<blockquote>
+<h5><a class="anchor" aria-hidden="true" id="when-to-use-cluster-level-failover"></a><a href="#when-to-use-cluster-level-failover" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>When to use cluster-level failover?</h5>
+</blockquote>
+<p>The cluster-level failover protects your environment in a number of ways, including but not limited to:</p>
+<ul>
+<li><p>Disaster recovery: cluster-level failover can automatically and seamlessly transfer the production workload on a primary cluster to one or several backup clusters, which ensures minimum data loss and reduced recovery time.</p></li>
+<li><p>Planned migration: if you want to migrate production workloads from an old cluster to a new cluster, you can improve the migration efficiency with cluster-level failover. For example, you can test whether the data migration goes smoothly in case of a failover event, identify possible issues and risks before the migration.</p></li>
+</ul>
+<blockquote>
+<h5><a class="anchor" aria-hidden="true" id="when-cluster-level-failover-is-triggered"></a><a href="#when-cluster-level-failover-is-triggered" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>When cluster-level failover is triggered?</h5>
+</blockquote>
+<div class="tabs"><div class="nav-tabs"><div id="tab-group-2461-tab-2462" class="nav-link active" data-group="group_2461" data-tab="tab-group-2461-content-2462">Automatic cluster-level failover</div><div id="tab-group-2461-tab-2463" class="nav-link" data-group="group_2461" data-tab="tab-group-2461-content-2463">Controlled cluster-level failover</div></div><div class="tab-content"><div id="tab-group-2461-content-2462" class="tab-pane active" data-group="group_2461" tabindex="-1"><div><span><p>Automatic cluster-level failover is triggered when Pulsar clients cannot connect to the primary cluster for a prolonged period of time. This can be caused by any number of reasons including, but not limited to:</p>
+<ul>
+<li><p>Network failure: internet connection is lost.</p></li>
+<li><p>Power failure: shutdown time of a primary cluster exceeds time limits.</p></li>
+<li><p>Service error: errors occur on a primary cluster (for example, the primary cluster does not function because of time limits).</p></li>
+<li><p>Crashed storage space: the primary cluster does not have enough storage space, but the corresponding storage space on the backup server functions normally.</p></li>
+</ul>
+</span></div></div><div id="tab-group-2461-content-2463" class="tab-pane" data-group="group_2461" tabindex="-1"><div><span><p>Controlled cluster-level failover is triggered when administrators set the switchover manually.</p>
+</span></div></div></div></div>
+<blockquote>
+<h5><a class="anchor" aria-hidden="true" id="why-does-cluster-level-failover-fail"></a><a href="#why-does-cluster-level-failover-fail" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Why does cluster-level failover fail?</h5>
+</blockquote>
+<p>Obviously, the cluster-level failover does not succeed if the backup cluster is unreachable by active Pulsar clients. This can happen for many reasons, including but not limited to:</p>
+<ul>
+<li><p>Power failure: the backup cluster is shut down or does not function normally.</p></li>
+<li><p>Crashed storage space: primary and backup clusters do not have enough storage space.</p></li>
+<li><p>If the failover is initiated, but no cluster can assume the role of an available cluster due to errors, and the primary cluster is not able to provide service normally.</p></li>
+<li><p>If you manually initiate a switchover, but services cannot be switched to the backup cluster server, then the system will attempt to switch services back to the primary cluster.</p></li>
+<li><p>Fail to authenticate or authorize between 1) primary and backup clusters, or 2) between two backup clusters.</p></li>
+</ul>
+<blockquote>
+<h5><a class="anchor" aria-hidden="true" id="what-are-the-limitations-of-cluster-level-failover"></a><a href="#what-are-the-limitations-of-cluster-level-failover" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>What are the limitations of cluster-level failover?</h5>
+</blockquote>
+<p>Currently, cluster-level failover can perform probes to prevent data loss, but it can not check the status of backup clusters. If backup clusters are not healthy, you cannot produce or consume data.</p>
+<blockquote>
+<h4><a class="anchor" aria-hidden="true" id="what-are-the-relationships-between-cluster-level-failover-and-geo-replication"></a><a href="#what-are-the-relationships-between-cluster-level-failover-and-geo-replication" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>What are the relationships between cluster-level failover and geo-replication?</h4>
+</blockquote>
+<p>The cluster-level failover is an extension of <a href="/docs/fr/next/concepts-replication">geo-replication</a> to improve stability and robustness. The cluster-level failover depends on geo-replication, and they have some <strong>differences</strong> as below.</p>
+<p>Influence |Cluster-level failover|Geo-replication |---|---|--- Do administrators have heavy workloads?|No or maybe.</p>
+<ul>
+<li><p>For the <strong>automatic</strong> cluster-level failover, the cluster switchover is triggered automatically based on the policies set by <strong>users</strong>.</p></li>
+<li><p>For the <strong>controlled</strong> cluster-level failover, the switchover is triggered manually by <strong>administrators</strong>.|Yes.</p></li>
+</ul>
+<p>If a cluster fails, immediate administration intervention is required.| Result in data loss?|No.</p>
+<p>For both <strong>automatic</strong> and <strong>controlled</strong> cluster-level failover, if the failed primary cluster doesn't replicate messages immediately to the backup cluster, the Pulsar client can't consume the non-replicated messages. After the primary cluster is restored and the Pulsar client switches back, the non-replicated data can still be consumed by the Pulsar client. Consequently, the data is not lost.</p>
+<ul>
+<li><p>For the <strong>automatic</strong> cluster-level failover, services can be switched and recovered automatically with no data loss.</p></li>
+<li><p>For the <strong>controlled</strong> cluster-level failover, services can be switched and recovered manually and data loss may happen.|Yes.</p></li>
+</ul>
+<p>Pulsar clients and DNS systems have caches. When administrators switch the DNS from a primary cluster to a backup cluster, it takes some time for cache trigger timeout, which delays client recovery time and fails to produce or consume messages. Result in Pulsar client failure? |No or maybe.</p>
+<ul>
+<li><p>For <strong>automatic</strong> cluster-level failover, services can be switched and recovered automatically and the Pulsar client does not fail.</p></li>
+<li><p>For <strong>controlled</strong> cluster-level failover, services can be switched and recovered manually, but the Pulsar client fails before administrators can take action. |Same as above.</p></li>
+</ul>
+<blockquote>
+<h4><a class="anchor" aria-hidden="true" id="how-to-use-cluster-level-failover"></a><a href="#how-to-use-cluster-level-failover" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>How to use cluster-level failover</h4>
+</blockquote>
+<p>This section guides you through every step on how to configure cluster-level failover.</p>
+<p><strong>Tip</strong></p>
+<ul>
+<li><p>You should configure cluster-level failover only when the cluster contains sufficient resources to handle all possible consequences. Workload intensity on the backup cluster may increase significantly.</p></li>
+<li><p>Connect clusters to an uninterruptible power supply (UPS) unit to reduce the risk of unexpected power loss.</p></li>
+</ul>
+<p><strong>Requirements</strong></p>
+<ul>
+<li><p>Pulsar client 2.10 or later versions.</p></li>
+<li><p>For backup clusters:</p>
+<ul>
+<li><p>The number of BooKeeper nodes should be equal to or greater than the ensemble quorum.</p></li>
+<li><p>The number of ZooKeeper nodes should be equal to or greater than 3.</p></li>
+</ul></li>
+<li><p><strong>Turn on geo-replication</strong> between the primary cluster and any dependent cluster (primary to backup or backup to backup) to prevent data loss.</p></li>
+<li><p>Set <code>replicateSubscriptionState</code> to <code>true</code> when creating consumers.</p></li>
+</ul>
+<div class="tabs"><div class="nav-tabs"><div id="tab-group-2464-tab-2465" class="nav-link active" data-group="group_2464" data-tab="tab-group-2464-content-2465">Automatic cluster-level failover</div><div id="tab-group-2464-tab-2466" class="nav-link" data-group="group_2464" data-tab="tab-group-2464-content-2466">Controlled cluster-level failover</div></div><div class="tab-content"><div id="tab-group-2464-content-2465" class="tab-pane active" data-group="group_2464" tabindex="-1"><div><span><p>This is an example of how to construct a Java Pulsar client to use automatic cluster-level failover. The switchover is triggered automatically.</p>
+<pre><code class="hljs">  private PulsarClient getAutoFailoverClient() throws PulsarClientException {<br /><br />        ServiceUrlProvider failover = AutoClusterFailover.builder()<br />                .primary(&quot;pulsar://localhost:6650&quot;)<br />                .secondary(Collections.singletonList(&quot;pulsar://other1:6650&quot;,&quot;pulsar://other2:6650&quot;))<br />                .failoverDelay(30, TimeUnit.SECONDS)<br />                .switchBackDelay(60, TimeUnit.SECONDS)<br />                .checkInterval(1000, TimeUnit.MILLISECONDS)<br />                .secondaryTlsTrustCertsFilePath(&quot;/path/to/ca.cert.pem&quot;)<br />    .secondaryAuthentication(&quot;org.apache.pulsar.client.impl.auth.AuthenticationTls&quot;,<br />&quot;tlsCertFile:/path/to/my-role.cert.pem,tlsKeyFile:/path/to/my-role.key-pk8.pem&quot;)<br /><br />                .build();<br /><br />        PulsarClient pulsarClient = PulsarClient.builder()<br />                .build();<br /><br />        failover.initialize(pulsarClient);<br />        return pulsarClient;<br />    }<br /></code></pre>
+<p>Configure the following parameters:</p>
+<p>Parameter|Default value|Required?|Description |---|---|---|--- <code>primary</code>|N/A|Yes|Service URL of the primary cluster. <code>secondary</code>|N/A|Yes|Service URL(s) of one or several backup clusters.</p>
+<p>You can specify several backup clusters using a comma-separated list.</p>
+<p>Note that:</p>
+<ul>
+<li>The backup cluster is chosen in the sequence shown in the list.</li>
+<li>If all backup clusters are available, the Pulsar client chooses the first backup cluster. <code>failoverDelay</code>|N/A|Yes|The delay before the Pulsar client switches from the primary cluster to the backup cluster.</li>
+</ul>
+<p>Automatic failover is controlled by a probe task:</p>
+<ol>
+<li>The probe task first checks the health status of the primary cluster.</li>
+<li>If the probe task finds the continuous failure time of the primary cluster exceeds <code>failoverDelayMs</code>, it switches the Pulsar client to the backup cluster. <code>switchBackDelay</code>|N/A|Yes|The delay before the Pulsar client switches from the backup cluster to the primary cluster.</li>
+</ol>
+<p>Automatic failover switchover is controlled by a probe task:</p>
+<ol>
+<li>After the Pulsar client switches from the primary cluster to the backup cluster, the probe task continues to check the status of the primary cluster.</li>
+<li>If the primary cluster functions well and continuously remains active longer than <code>switchBackDelay</code>, the Pulsar client switches back to the primary cluster. <code>checkInterval</code>|30s|No|Frequency of performing a probe task (in seconds). <code>secondaryTlsTrustCertsFilePath</code>|N/A|No|Path to the trusted TLS certificate file of the backup cluster. <code>secondaryAuthentication</code>|N/A|No|Authentication of the backup cluster.</li>
+</ol>
+</span></div></div><div id="tab-group-2464-content-2466" class="tab-pane" data-group="group_2464" tabindex="-1"><div><span><p>This is an example of how to construct a Java Pulsar client to use controlled cluster-level failover. The switchover is triggered by administrators manually.</p>
+<p><strong>Note</strong>: you can have one or several backup clusters but can only specify one.</p>
+<pre><code class="hljs"> public PulsarClient getControlledFailoverClient() throws IOException {<br />Map&lt;String, String&gt; header = new HashMap&lt;&gt;(); <br />  header.put(“service_user_id”, “my-user”);<br />  header.put(“service_password”, “tiger”);<br />  header.put(“clusterA”, “tokenA”);<br />  header.put(“clusterB”, “tokenB”);<br /><br />  ServiceUrlProvider provider = <br />      ControlledClusterFailover.builder()<br />        .defaultServiceUrl(&quot;pulsar://localhost:6650&quot;)<br />        .checkInterval(1, TimeUnit.MINUTES)<br />        .urlProvider(&quot;http://localhost:8080/test&quot;)<br />        .urlProviderHeader(header)<br />        .build();<br /><br />  PulsarClient pulsarClient = <br />     PulsarClient.builder()<br />      .build();<br /><br />  provider.initialize(pulsarClient);<br />  return pulsarClient;<br />}<br /></code></pre>
+<p>Parameter|Default value|Required?|Description |---|---|---|--- <code>defaultServiceUrl</code>|N/A|Yes|Pulsar service URL. <code>checkInterval</code>|30s|No|Frequency of performing a probe task (in seconds). <code>urlProvider</code>|N/A|Yes|URL provider service. <code>urlProviderHeader</code>|N/A|No|<code>urlProviderHeader</code> is a map containing tokens and credentials.</p>
+<p>If you enable authentication or authorization between Pulsar clients and primary and backup clusters, you need to provide <code>urlProviderHeader</code>.</p>
+<p>Here is an example of how <code>urlProviderHeader</code> works.</p>
+<p><img src="/docs/assets/cluster-level-failover-3.png" alt="How urlProviderHeader works"></p>
+<p>Assume that you want to connect Pulsar client 1 to cluster A.</p>
+<ol>
+<li><p>Pulsar client 1 sends the token <em>t1</em> to the URL provider service.</p></li>
+<li><p>The URL provider service returns the credential <em>c1</em> and the cluster A URL to the Pulsar client.</p>
+<p>The URL provider service manages all tokens and credentials. It returns different credentials based on different tokens and different target cluster URLs to different Pulsar clients.</p>
+<p><strong>Note</strong>: <strong>the credential must be in a JSON file and contain parameters as shown</strong>.</p>
+<pre><code class="hljs"> {<br /> &quot;serviceUrl&quot;: &quot;pulsar+ssl://target:6651&quot;, <br /> &quot;tlsTrustCertsFilePath&quot;: &quot;/security/ca.cert.pem&quot;,<br /> &quot;authPluginClassName&quot;:&quot;org.apache.pulsar.client.impl.auth.AuthenticationTls&quot;,<br /> &quot;authParamsString&quot;: &quot; \&quot;tlsCertFile\&quot;: \&quot;/security/client.cert.pem\&quot; <br />     \&quot;tlsKeyFile\&quot;: \&quot;/security/client-pk8.pem\&quot; &quot;<br /> }<br /></code></pre></li>
+<li><p>Pulsar client 1 connects to cluster A using credential <em>c1</em>.</p></li>
+</ol>
+</span></div></div></div></div>
+<blockquote>
+<h4><a class="anchor" aria-hidden="true" id="how-does-cluster-level-failover-work"></a><a href="#how-does-cluster-level-failover-work" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>How does cluster-level failover work?</h4>
+</blockquote>
+<p>This chapter explains the working process of cluster-level failover. For more implementation details, see <a href="https://github.com/apache/pulsar/issues/13315">PIP-121</a>.</p>
+<div class="tabs"><div class="nav-tabs"><div id="tab-group-2467-tab-2468" class="nav-link active" data-group="group_2467" data-tab="tab-group-2467-content-2468">Automatic cluster-level failover</div><div id="tab-group-2467-tab-2469" class="nav-link" data-group="group_2467" data-tab="tab-group-2467-content-2469">Controlled cluster-level failover</div></div><div class="tab-content"><div id="tab-group-2467-content-2468" class="tab-pane active" data-group="group_2467" tabindex="-1"><div><span><p>In automatic failover cluster, the primary cluster and backup cluster are aware of each other's availability. The automatic failover cluster performs the following actions without administrator intervention:</p>
+<ol>
+<li><p>The Pulsar client runs a probe task at intervals defined in <code>checkInterval</code>.</p></li>
+<li><p>If the probe task finds the failure time of the primary cluster exceeds the time set in the <code>failoverDelay</code> parameter, it searches backup clusters for an available healthy cluster.</p>
+<p>2a) If there are healthy backup clusters, the Pulsar client switches to a backup cluster in the order defined in <code>secondary</code>.</p>
+<p>2b) If there is no healthy backup cluster, the Pulsar client does not perform the switchover, and the probe task continues to look for an available backup cluster.</p></li>
+<li><p>The probe task checks whether the primary cluster functions well or not.</p>
+<p>3a) If the primary cluster comes back and the continuous healthy time exceeds the time set in <code>switchBackDelay</code>, the Pulsar client switches back to the primary cluster.</p>
+<p>3b) If the primary cluster does not come back, the Pulsar client does not perform the switchover.</p></li>
+</ol>
+<p><img src="/docs/assets/cluster-level-failover-4.png" alt="Workflow of automatic failover cluster"></p>
+</span></div></div><div id="tab-group-2467-content-2469" class="tab-pane" data-group="group_2467" tabindex="-1"><div><span><ol>
+<li><p>The Pulsar client runs a probe task at intervals defined in <code>checkInterval</code>.</p></li>
+<li><p>The probe task fetches the service URL configuration from the URL provider service, which is configured by <code>urlProvider</code>.</p>
+<p>2a) If the service URL configuration is changed, the probe task switches to the target cluster without checking the health status of the target cluster.</p>
+<p>2b) If the service URL configuration is not changed, the Pulsar client does not perform the switchover.</p></li>
+<li><p>If the Pulsar client switches to the target cluster, the probe task continues to fetch service URL configuration from the URL provider service at intervals defined in <code>checkInterval</code>.</p>
+<p>3a) If the service URL configuration is changed, the probe task switches to the target cluster without checking the health status of the target cluster.</p>
+<p>3b) If the service URL configuration is not changed, it does not perform the switchover.</p></li>
+</ol>
+<p><img src="/docs/assets/cluster-level-failover-5.png" alt="Workflow of controlled failover cluster"></p>
+</span></div></div></div></div>
 <h2><a class="anchor" aria-hidden="true" id="producer"></a><a href="#producer" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Producer</h2>
 <p>Dans Pulsar, les producteurs écrivent des messages dans des topics. Une fois que vous avez instancié un objet <a href="https://pulsar.apache.org/api/client/2.9.0-SNAPSHOT/org/apache/pulsar/client/api/PulsarClient">PulsarClient</a>
  (comme dans la section <a href="#client-configuration"> ci-dessus</a>), vous pouvez créer une instance de javadoc:Producteur:/client/org/apache/pulsar/client/api/Producer pour un <a href="/docs/fr/next/reference-terminology#topic">topic</a> Pulsar spécifique.</p>
@@ -249,13 +425,14 @@ Available options are as follows:</li>
 <ul>
 <li><p><strong>FAIL</strong>: if encryption fails, unencrypted messages fail to send.</p></li>
 <li><p><strong>SEND</strong>: if encryption fails, unencrypted messages are sent. |
-<code>ProducerCryptoFailureAction.FAIL</code> <code>batchingMaxPublishDelayMicros</code>| long|Batching time period of sending messages.|TimeUnit.MILLISECONDS.toMicros(1) <code>batchingMaxMessages</code> |int|The maximum number of messages permitted in a batch.|1000 <code>batchingEnabled</code>| boolean|Enable batching of messages. |true <code>compressionType</code>|CompressionType|Message data compression type used by a producer.<br>
+<code>ProducerCryptoFailureAction.FAIL</code> <code>batchingMaxPublishDelayMicros</code>| long|Batching time period of sending messages.|TimeUnit.MILLISECONDS.toMicros(1) <code>batchingMaxMessages</code> |int|The maximum number of messages permitted in a batch.|1000 <code>batchingEnabled</code>| boolean|Enable batching of messages. |true <code>chunkingEnabled</code> | boolean | Enable chunking of messages. |false <code>compressionType</code>|CompressionType|Message data compression type used by a producer.<br>
 Available options:</p></li>
 <li><p><a href="https://github.com/lz4/lz4"><code>LZ4</code></a></p></li>
 <li><p><a href="https://zlib.net/"><code>ZLIB</code></a></p>
 <ul>
 <li><a href="https://facebook.github.io/zstd/"><code>ZSTD</code></a></li>
-<li><a href="https://google.github.io/snappy/"><code>SNAPPY</code></a>| No compression</p>
+<li><a href="https://google.github.io/snappy/"><code>SNAPPY</code></a>| No compression
+<code>initialSubscriptionName</code>|string|Use this configuration to automatically create an initial subscription when creating a topic. If this field is not set, the initial subscription is not created.|null</p>
 You can configure parameters if you do not want to use the default configuration.</li>
 </ul>
 <p>For a full list, see the Javadoc for the <a href="https://pulsar.apache.org/api/client/2.9.0-SNAPSHOT/org/apache/pulsar/client/api/ProducerBuilder">ProducerBuilder</a>
@@ -288,6 +465,18 @@ You can configure parameters if you do not want to use the default configuration
     .send();
 </code></pre>
 <p>You can terminate the builder chain with <code>sendAsync()</code> and get a future return.</p>
+<h3><a class="anchor" aria-hidden="true" id="enable-chunking"></a><a href="#enable-chunking" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Enable chunking</h3>
+<p>Message <a href="/docs/fr/next/concepts-messaging#chunking">chunking</a> enables Pulsar to process large payload messages by splitting the message into chunks at the producer side and aggregating chunked messages at the consumer side.</p>
+<p>The message chunking feature is OFF by default. The following is an example about how to enable message chunking when creating a producer.</p>
+<pre><code class="hljs css language-java">Producer&lt;<span class="hljs-keyword">byte</span>[]&gt; producer = client.newProducer()
+        .topic(topic)
+        .enableChunking(<span class="hljs-keyword">true</span>)
+        .enableBatching(<span class="hljs-keyword">false</span>)
+        .create();
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> To enable chunking, you need to disable batching (<code>enableBatching</code>=<code>false</code>) concurrently.</p>
+</blockquote>
 <h2><a class="anchor" aria-hidden="true" id="consumer"></a><a href="#consumer" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Consumer</h2>
 <p>Dans Pulsar, les consommateurs s'abonnent à des topics et traitent les messages que les producteurs publient sur ces topics. Vous pouvez instancier un nouveau <a href="/docs/fr/next/reference-terminology#consumer">consommateur</a> en instanciant d'abord un objet <a href="https://pulsar.apache.org/api/client/2.9.0-SNAPSHOT/org/apache/pulsar/client/api/PulsarClient">PulsarClient</a>
  et en lui passant l'URL d'un broker Pulsar (comme <a href="#client-configuration">ci-dessus</a>).</p>
@@ -415,7 +604,7 @@ To set a custom dead letter topic name:
   
 When specifying the dead letter policy while not specifying `ackTimeoutMillis`, you can set the ack timeout to 30000 millisecond.|None `autoUpdatePartitions`|boolean|If `autoUpdatePartitions` is enabled, a consumer subscribes to partition increasement automatically.  
   
-**Note**: this is only for partitioned consumers.|true `replicateSubscriptionState`|boolean|If `replicateSubscriptionState` is enabled, a subscription state is replicated to geo-replicated clusters.|false `negativeAckRedeliveryBackoff`|NegativeAckRedeliveryBackoff|Interface for custom message is negativeAcked policy. You can specify `NegativeAckRedeliveryBackoff` for a consumer.| `NegativeAckRedeliveryExponentialBackoff`
+**Note**: this is only for partitioned consumers.|true `replicateSubscriptionState`|boolean|If `replicateSubscriptionState` is enabled, a subscription state is replicated to geo-replicated clusters.|false `negativeAckRedeliveryBackoff`|RedeliveryBackoff|Interface for custom message is negativeAcked policy. You can specify `RedeliveryBackoff` for a consumer.| `MultiplierRedeliveryBackoff` `ackTimeoutRedeliveryBackoff`|RedeliveryBackoff|Interface for custom message is ackTimeout policy. You can specify `RedeliveryBackoff` for a consumer.| `MultiplierRedeliveryBackoff` `autoAckOldestChunkedMessageOnQueueFull`|boolean|Whether to automatically acknowledge pending chunked messages when the threashold of `maxPendingChunkedMessage` is reached. If set to `false`, these messages will be redelivered by their broker. |true `maxPendingChunkedMessage`|int| The maximum size of a queue holding pending chunked messages. When the threshold is reached, the consumer drops pending messages to optimize memory utilization.|10 `expireTimeOfIncompleteChunkedMessageMillis`|long|The time interval to expire incomplete chunks if a consumer fails to receive all the chunks in the specified time period. The default value is 1 minute. | 60000
 
 You can configure parameters if you do not want to use the default configuration. For a full list, see the Javadoc for the {@inject: javadoc:ConsumerBuilder:/client/org/apache/pulsar/client/api/ConsumerBuilder} class.
 
@@ -484,22 +673,68 @@ consumer.acknowledge(messages)
 &gt;     .build();
 &gt; ```
 
+### Configure chunking
+
+You can limit the maximum number of chunked messages a consumer maintains concurrently by configuring the `maxPendingChunkedMessage` and `autoAckOldestChunkedMessageOnQueueFull` parameters. When the threshold is reached, the consumer drops pending messages by silently acknowledging them or asking the broker to redeliver them later. The `expireTimeOfIncompleteChunkedMessage` parameter decides the time interval to expire incomplete chunks if the consumer fails to receive all chunks of a message within the specified time period.
+
+The following is an example of how to configure message chunking.
+
+```java
+Consumer&lt;byte[]&gt; consumer = client.newConsumer()
+        .topic(topic)
+        .subscriptionName(&quot;test&quot;)
+        .autoAckOldestChunkedMessageOnQueueFull(true)
+        .maxPendingChunkedMessage(100)
+        .expireTimeOfIncompleteChunkedMessage(10, TimeUnit.MINUTES)
+        .subscribe();
+```
+
 ### Negative acknowledgment redelivery backoff
 
-The `NegativeAckRedeliveryBackoff` introduces a redelivery backoff mechanism. You can achieve redelivery with different delays by setting `redeliveryCount` of messages.
+The `RedeliveryBackoff` introduces a redelivery backoff mechanism. You can achieve redelivery with different delays by setting `redeliveryCount` of messages.
 
 ```java
 Consumer consumer =  client.newConsumer()
         .topic(&quot;my-topic&quot;)
         .subscriptionName(&quot;my-subscription&quot;)
-        .negativeAckRedeliveryBackoff(NegativeAckRedeliveryExponentialBackoff.builder()
-                .minNackTimeMs(1000)
-                .maxNackTimeMs(60 * 1000)
+        .negativeAckRedeliveryBackoff(MultiplierRedeliveryBackoff.builder()
+                .minDelayMs(1000)
+                .maxDelayMs(60 * 1000)
                 .build())
         .subscribe();
 ```
 
-&gt; **Note** - The `negativeAckRedeliveryBackoff` does not work with `consumer.negativeAcknowledge(MessageId messageId)` because you are not able to get the redelivery count from the message ID. - If a consumer crashes, it triggers the redelivery of unacked messages. In this case, `NegativeAckRedeliveryBackoff` does not take effect and the messages might get redelivered earlier than the delay time from the backoff.
+### Acknowledgement timeout redelivery backoff
+
+The `RedeliveryBackoff` introduces a redelivery backoff mechanism. You can redeliver messages with different delays by setting the number of times the messages is retried.
+
+```java
+Consumer consumer =  client.newConsumer()
+        .topic(&quot;my-topic&quot;)
+        .subscriptionName(&quot;my-subscription&quot;)
+        .ackTimeout(10, TimeUnit.SECOND)
+        .ackTimeoutRedeliveryBackoff(MultiplierRedeliveryBackoff.builder()
+                .minDelayMs(1000)
+                .maxDelayMs(60000)
+                .multiplier(2)
+                .build())
+        .subscribe();
+```
+
+The message redelivery behavior should be as follows.
+
+| Redelivery count | Redelivery delay |
+|:---------------- |:---------------- |
+| 1                | 10 + 1 seconds   |
+| 2                | 10 + 2 seconds   |
+| 3                | 10 + 4 seconds   |
+| 4                | 10 + 8 seconds   |
+| 5                | 10 + 16 seconds  |
+| 6                | 10 + 32 seconds  |
+| 7                | 10 + 60 seconds  |
+| 8                | 10 + 60 seconds  |
+
+&gt; **Note** - The `negativeAckRedeliveryBackoff` does not work with `consumer.negativeAcknowledge(MessageId messageId)` because you are not able to get the redelivery count from the message ID. - If a consumer crashes, it triggers the redelivery of unacked messages. In this case, `RedeliveryBackoff` does not take effect and the messages might get redelivered earlier than the delay time from the backoff.
 
 ### Abonnements multi-topics
 
@@ -853,6 +1088,52 @@ pulsarClient.newReader()
 
 Total hash range size is 65536, so the max end of the range should be less than or equal to 65535.
 
+## TableView
+
+The TableView interface serves an encapsulated access pattern, providing a continuously updated key-value map view of the compacted topic data. Messages without keys will be ignored.
+
+With TableView, Pulsar clients can fetch all the message updates from a topic and construct a map with the latest values of each key. These values can then be used to build a local cache of data. In addition, you can register consumers with the TableView by specifying a listener to perform a scan of the map and then receive notifications when new messages are received. Consequently, event handling can be triggered to serve use cases, such as event-driven applications and message monitoring.
+
+&gt; **Note:** Each TableView uses one Reader instance per partition, and reads the topic starting from the compacted view by default. It is highly recommended to enable automatic compaction by [configuring the topic compaction policies](/docs/fr/next/cookbooks-compaction#configuring-compaction-to-run-automatically) for the given topic or namespace. More frequent compaction results in shorter startup times because less data is replayed to reconstruct the TableView of the topic.
+
+The following figure illustrates the dynamic construction of a TableView updated with newer values of each key. ![TableView](/docs/assets/tableview.png)
+
+### Configure TableView
+
+The following is an example of how to configure a TableView.
+
+```java
+TableView&lt;String&gt; tv = client.newTableViewBuilder(Schema.STRING)
+  .topic(&quot;my-tableview&quot;)
+  .create()
+```
+
+You can use the available parameters in the `loadConf` configuration or related [API](https://pulsar.apache.org/api/client/2.9.0-SNAPSHOT/2.10.0-SNAPSHOT/org/apache/pulsar/client/api/TableViewBuilder.html) to customize your TableView.
+
+| Name | Type| Required? |
+
+&lt;div style=&quot;width:300px&quot;&gt;
+  Description
+&lt;/div&gt;
+| Default                                                                                                     |
+| ----------------------------------------------------------------------------------------------------------- |
+| `topic` | string | yes | The topic name of the TableView. | N/A                                             |
+| `autoUpdatePartitionInterval` | int | no | The interval to check for newly added partitions. | 60 (seconds) |
+
+### Register listeners
+
+You can register listeners for both existing messages on a topic and new messages coming into the topic by using `forEachAndListen`, and specify to perform operations for all existing messages by using `forEach`.
+
+The following is an example of how to register listeners with TableView.
+
+```java
+// Register listeners for all existing and incoming messages
+tv.forEachAndListen((key, value) -&gt; /*operations on all existing and incoming messages*/)
+
+// Register action for all existing messages
+tv.forEach((key, value) -&gt; /*operations on all existing messages*/)
+```
+
 ## Schema
 
 In Pulsar, all message data consists of byte arrays &quot;under the hood.&quot; [Message schemas](/docs/fr/next/schema-get-started) enable you to use other types of data when constructing and handling messages (from simple types like strings to more complex, application-specific types). If you construct, say, a [producer](#producer) without specifying a schema, then the producer can only produce messages of type `byte[]`. The following is an example.
@@ -1037,7 +1318,7 @@ PulsarClient client = PulsarClient.builder()
     .authentication(auth)
     .build();
 ```</code></pre>
-</span></div></article></div><div class="docs-prevnext"><a class="docs-prev button" href="/docs/fr/next/client-libraries"><span class="arrow-prev">← </span><span>Overview</span></a><a class="docs-next button" href="/docs/fr/next/client-libraries-go"><span>Go</span><span class="arrow-next"> →</span></a></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#installation">Installation</a><ul class="toc-headings"><li><a href="#maven">Maven</a></li><li><a href="#gradle">Gradle</a></li></ul></li><li><a href="#connection-urls">Connection URLs</a></li><li><a href="#client">Client</a><ul class="toc-headings"><li><a href="#url-par-défaut-pour-les-clusters-en-mode-standalone">URL par défaut pour les clusters en mode standalone</a></li><li><a href="#client-memory-allocator-configuration">Client memory allocator configuration</a></li></ul></li><li><a href="#producer">Producer</a><ul class="toc-headings"><li><a href="#configure-producer">Configure producer</a></li><li><a href="#routage-des-messages">Routage des messages</a></li><li><a href="#envoi-asynchrone">Envoi Asynchrone</a></li><li><a href="#configure-messages">Configure messages</a></li></ul></li><li><a href="#consumer">Consumer</a><ul class="toc-headings"><li><a href="#configure-consumer">Configure consumer</a></li></ul></li></ul></nav></div><footer class="nav-footer" id="footer"><section class="copyright">Copyright © 2022 The Apache Software Foundation. All Rights Reserved. Apache, Apache Pulsar and the Apache feather logo are trademarks of The Apache Software Foundation.</section><span><script>
+</span></div></article></div><div class="docs-prevnext"><a class="docs-prev button" href="/docs/fr/next/client-libraries"><span class="arrow-prev">← </span><span>Overview</span></a><a class="docs-next button" href="/docs/fr/next/client-libraries-go"><span>Go</span><span class="arrow-next"> →</span></a></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#installation">Installation</a><ul class="toc-headings"><li><a href="#maven">Maven</a></li><li><a href="#gradle">Gradle</a></li></ul></li><li><a href="#connection-urls">Connection URLs</a></li><li><a href="#client">Client</a><ul class="toc-headings"><li><a href="#url-par-défaut-pour-les-clusters-en-mode-standalone">URL par défaut pour les clusters en mode standalone</a></li><li><a href="#client-memory-allocator-configuration">Client memory allocator configuration</a></li><li><a href="#cluster-level-failover">Cluster-level failover</a></li></ul></li><li><a href="#producer">Producer</a><ul class="toc-headings"><li><a href="#configure-producer">Configure producer</a></li><li><a href="#routage-des-messages">Routage des messages</a></li><li><a href="#envoi-asynchrone">Envoi Asynchrone</a></li><li><a href="#configure-messages">Configure messages</a></li><li><a href="#enable-chunking">Enable chunking</a></li></ul></li><li><a href="#consumer">Consumer</a><ul class="toc-headings"><li><a href="#configure-consumer">Configure consumer</a></li></ul></li></ul></nav></div><footer class="nav-footer" id="footer"><section class="copyright">Copyright © 2022 The Apache Software Foundation. All Rights Reserved. Apache, Apache Pulsar and the Apache feather logo are trademarks of The Apache Software Foundation.</section><span><script>
       const community = document.querySelector("a[href='#community']").parentNode;
       const communityMenu =
         '<li>' +

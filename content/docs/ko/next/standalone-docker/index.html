@@ -82,7 +82,7 @@
 <pre><code class="hljs css language-shell"><span class="hljs-meta">$</span><span class="bash"> docker run -it -p 6650:6650  -p 8080:8080 --mount <span class="hljs-built_in">source</span>=pulsardata,target=/pulsar/data --mount <span class="hljs-built_in">source</span>=pulsarconf,target=/pulsar/conf apachepulsar/pulsar:2.9.1 bin/pulsar standalone</span>
 </code></pre></li>
 </ul>
-<p>이 명령에 대해 몇 가지 참고 할 사항: * 컨테이너를 다시 시작할 때마다 &quot;새로&quot; 시작하지 않도록, data와 metadata 및 configuration이 Docker 볼륨에 유지되도록 합니다. For details on the volumes you can use <code>docker volume inspect &lt;sourcename&gt;</code> * For Docker on Windows make sure to configure it to use Linux containers</p>
+<p>이 명령에 대해 몇 가지 참고 할 사항: * 컨테이너를 다시 시작할 때마다 &quot;새로&quot; 시작하지 않도록, data와 metadata 및 configuration이 Docker 볼륨에 유지되도록 합니다. For details on the volumes you can use <code>docker volume inspect &lt;sourcename&gt;</code> * For Docker on Windows make sure to configure it to use Linux containers * The docker container will run as UID 10000 and GID 0, by default. You'll need to ensure the mounted volumes give write permission to either UID 10000 or GID 0. Note that UID 10000 is arbitrary, so it is recommended to make these mounts writable for the root group (GID 0).</p>
 <p>Pulsar가 성공적으로 시작하면, 다음과 같은 <code>INFO</code>level 로그 메시지가 표시됩니다.</p>
 <pre><code class="hljs">08:18:30.970 [main] INFO  org.apache.pulsar.broker.web.WebService - HTTP Service started at http://0.0.0.0:8080
 ...

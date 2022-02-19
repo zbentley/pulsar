@@ -83,7 +83,7 @@
 <pre><code class="hljs css language-shell"><span class="hljs-meta">$</span><span class="bash"> docker run -it -p 6650:6650  -p 8080:8080 --mount <span class="hljs-built_in">source</span>=pulsardata,target=/pulsar/data --mount <span class="hljs-built_in">source</span>=pulsarconf,target=/pulsar/conf apachepulsar/pulsar:2.9.1 bin/pulsar standalone</span>
 </code></pre></li>
 </ul>
-<p>注意事项：   *数据、元数据、配置都保存在 Docker 中，以避免每次重启容器时都为“初始配置”。 可以使用<code>docker volume inspect &lt;sourcename&gt;</code>命令查看容器存储卷的详情信息 * 对于运行在Windows操作系统的Docker，务必确保配置使用Linux 容器</p>
+<p>注意事项：   *数据、元数据、配置都保存在 Docker 中，以避免每次重启容器时都为“初始配置”。 For details on the volumes you can use <code>docker volume inspect &lt;sourcename&gt;</code> * For Docker on Windows make sure to configure it to use Linux containers * The docker container will run as UID 10000 and GID 0, by default. You'll need to ensure the mounted volumes give write permission to either UID 10000 or GID 0. Note that UID 10000 is arbitrary, so it is recommended to make these mounts writable for the root group (GID 0).</p>
 <p>成功启动 Pulsar 后，你将看到如下所示的 <code>INFO</code> 级日志消息：</p>
 <pre><code class="hljs">08:18:30.970 [main] INFO  org.apache.pulsar.broker.web.WebService - HTTP Service started at http://0.0.0.0:8080
 ...
