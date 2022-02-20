@@ -1251,14 +1251,14 @@
         "CompletableFuture": {
             "type": "object",
             "properties": {
-                "cancelled": {
-                    "type": "boolean"
-                },
                 "numberOfDependents": {
                     "type": "integer",
                     "format": "int32"
                 },
                 "done": {
+                    "type": "boolean"
+                },
+                "cancelled": {
                     "type": "boolean"
                 },
                 "completedExceptionally": {
@@ -1269,14 +1269,14 @@
         "CompletableFutureClusterData": {
             "type": "object",
             "properties": {
-                "cancelled": {
-                    "type": "boolean"
-                },
                 "numberOfDependents": {
                     "type": "integer",
                     "format": "int32"
                 },
                 "done": {
+                    "type": "boolean"
+                },
+                "cancelled": {
                     "type": "boolean"
                 },
                 "completedExceptionally": {
@@ -1287,14 +1287,14 @@
         "CompletableFutureVoid": {
             "type": "object",
             "properties": {
-                "cancelled": {
-                    "type": "boolean"
-                },
                 "numberOfDependents": {
                     "type": "integer",
                     "format": "int32"
                 },
                 "done": {
+                    "type": "boolean"
+                },
+                "cancelled": {
                     "type": "boolean"
                 },
                 "completedExceptionally": {
@@ -1390,13 +1390,13 @@
                     "type": "integer",
                     "format": "int32"
                 },
-                "symbol": {
-                    "type": "string"
-                },
                 "displayName": {
                     "type": "string"
                 },
                 "numericCodeAsString": {
+                    "type": "string"
+                },
+                "symbol": {
                     "type": "string"
                 }
             }
@@ -2214,6 +2214,10 @@
                 "currentValue": {
                     "type": "object"
                 },
+                "featureMask": {
+                    "type": "integer",
+                    "format": "int32"
+                },
                 "highestEscapedChar": {
                     "type": "integer",
                     "format": "int32"
@@ -2227,10 +2231,6 @@
                 },
                 "outputContext": {
                     "$ref": "#/definitions/JsonStreamContext"
-                },
-                "featureMask": {
-                    "type": "integer",
-                    "format": "int32"
                 },
                 "formatFeatures": {
                     "type": "integer",
@@ -2347,21 +2347,9 @@
                 "currentValue": {
                     "type": "object"
                 },
-                "currentTokenId": {
+                "featureMask": {
                     "type": "integer",
                     "format": "int32"
-                },
-                "parsingContext": {
-                    "$ref": "#/definitions/JsonStreamContext"
-                },
-                "currentLocation": {
-                    "$ref": "#/definitions/JsonLocation"
-                },
-                "expectedStartArrayToken": {
-                    "type": "boolean"
-                },
-                "expectedStartObjectToken": {
-                    "type": "boolean"
                 },
                 "lastClearedToken": {
                     "type": "string",
@@ -2439,13 +2427,25 @@
                 "inputSource": {
                     "type": "object"
                 },
-                "featureMask": {
-                    "type": "integer",
-                    "format": "int32"
-                },
                 "formatFeatures": {
                     "type": "integer",
                     "format": "int32"
+                },
+                "currentTokenId": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "parsingContext": {
+                    "$ref": "#/definitions/JsonStreamContext"
+                },
+                "currentLocation": {
+                    "$ref": "#/definitions/JsonLocation"
+                },
+                "expectedStartArrayToken": {
+                    "type": "boolean"
+                },
+                "expectedStartObjectToken": {
+                    "type": "boolean"
                 }
             }
         },
@@ -3143,9 +3143,6 @@
                 "displayName": {
                     "type": "string"
                 },
-                "id": {
-                    "type": "string"
-                },
                 "dstsavings": {
                     "type": "integer",
                     "format": "int32"
@@ -3153,6 +3150,9 @@
                 "rawOffset": {
                     "type": "integer",
                     "format": "int32"
+                },
+                "id": {
+                    "type": "string"
                 }
             }
         },
@@ -3286,6 +3286,26 @@
                 "issuerX500Principal": {
                     "$ref": "#/definitions/X500Principal"
                 },
+                "serialNumber": {
+                    "type": "integer"
+                },
+                "tbscertificate": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "format": "byte"
+                    }
+                },
+                "issuerDN": {
+                    "$ref": "#/definitions/Principal"
+                },
+                "subjectDN": {
+                    "$ref": "#/definitions/Principal"
+                },
+                "version": {
+                    "type": "integer",
+                    "format": "int32"
+                },
                 "extendedKeyUsage": {
                     "type": "array",
                     "items": {
@@ -3348,26 +3368,6 @@
                             "type": "object"
                         }
                     }
-                },
-                "serialNumber": {
-                    "type": "integer"
-                },
-                "tbscertificate": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                        "format": "byte"
-                    }
-                },
-                "issuerDN": {
-                    "$ref": "#/definitions/Principal"
-                },
-                "subjectDN": {
-                    "$ref": "#/definitions/Principal"
-                },
-                "version": {
-                    "type": "integer",
-                    "format": "int32"
                 },
                 "signature": {
                     "type": "array",
