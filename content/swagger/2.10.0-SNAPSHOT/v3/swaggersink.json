@@ -1048,15 +1048,15 @@
         "CompletableFuture": {
             "type": "object",
             "properties": {
-                "done": {
-                    "type": "boolean"
-                },
                 "cancelled": {
                     "type": "boolean"
                 },
                 "numberOfDependents": {
                     "type": "integer",
                     "format": "int32"
+                },
+                "done": {
+                    "type": "boolean"
                 },
                 "completedExceptionally": {
                     "type": "boolean"
@@ -1066,15 +1066,15 @@
         "CompletableFutureClusterData": {
             "type": "object",
             "properties": {
-                "done": {
-                    "type": "boolean"
-                },
                 "cancelled": {
                     "type": "boolean"
                 },
                 "numberOfDependents": {
                     "type": "integer",
                     "format": "int32"
+                },
+                "done": {
+                    "type": "boolean"
                 },
                 "completedExceptionally": {
                     "type": "boolean"
@@ -1084,15 +1084,15 @@
         "CompletableFutureVoid": {
             "type": "object",
             "properties": {
-                "done": {
-                    "type": "boolean"
-                },
                 "cancelled": {
                     "type": "boolean"
                 },
                 "numberOfDependents": {
                     "type": "integer",
                     "format": "int32"
+                },
+                "done": {
+                    "type": "boolean"
                 },
                 "completedExceptionally": {
                     "type": "boolean"
@@ -1248,11 +1248,11 @@
                 "numberFormat": {
                     "$ref": "#/definitions/NumberFormat"
                 },
-                "lenient": {
-                    "type": "boolean"
-                },
                 "timeZone": {
                     "$ref": "#/definitions/TimeZone"
+                },
+                "lenient": {
+                    "type": "boolean"
                 }
             }
         },
@@ -1593,14 +1593,14 @@
                     "type": "integer",
                     "format": "int32"
                 },
+                "text": {
+                    "type": "string"
+                },
                 "textCharacters": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
-                },
-                "text": {
-                    "type": "string"
                 },
                 "booleanValue": {
                     "type": "boolean"
@@ -1823,6 +1823,9 @@
         "Locale": {
             "type": "object",
             "properties": {
+                "displayName": {
+                    "type": "string"
+                },
                 "script": {
                     "type": "string"
                 },
@@ -1869,9 +1872,6 @@
                     "type": "string"
                 },
                 "displayVariant": {
-                    "type": "string"
-                },
-                "displayName": {
                     "type": "string"
                 },
                 "language": {
@@ -2120,15 +2120,15 @@
                 "format": {
                     "type": "string"
                 },
-                "algorithm": {
-                    "type": "string"
-                },
                 "encoded": {
                     "type": "array",
                     "items": {
                         "type": "string",
                         "format": "byte"
                     }
+                },
+                "algorithm": {
+                    "type": "string"
                 }
             }
         },
@@ -2474,10 +2474,10 @@
         "TimeZone": {
             "type": "object",
             "properties": {
-                "id": {
+                "displayName": {
                     "type": "string"
                 },
-                "displayName": {
+                "id": {
                     "type": "string"
                 },
                 "dstsavings": {
@@ -2582,16 +2582,6 @@
                 "issuerX500Principal": {
                     "$ref": "#/definitions/X500Principal"
                 },
-                "version": {
-                    "type": "integer",
-                    "format": "int32"
-                },
-                "issuerDN": {
-                    "$ref": "#/definitions/Principal"
-                },
-                "subjectDN": {
-                    "$ref": "#/definitions/Principal"
-                },
                 "serialNumber": {
                     "type": "integer"
                 },
@@ -2601,17 +2591,6 @@
                         "type": "string",
                         "format": "byte"
                     }
-                },
-                "signature": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                        "format": "byte"
-                    }
-                },
-                "basicConstraints": {
-                    "type": "integer",
-                    "format": "int32"
                 },
                 "extendedKeyUsage": {
                     "type": "array",
@@ -2675,6 +2654,27 @@
                             "type": "object"
                         }
                     }
+                },
+                "version": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "issuerDN": {
+                    "$ref": "#/definitions/Principal"
+                },
+                "subjectDN": {
+                    "$ref": "#/definitions/Principal"
+                },
+                "signature": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "format": "byte"
+                    }
+                },
+                "basicConstraints": {
+                    "type": "integer",
+                    "format": "int32"
                 },
                 "criticalExtensionOIDs": {
                     "type": "array",
