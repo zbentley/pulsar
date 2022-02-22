@@ -563,6 +563,32 @@
   </tr>
   <tr>
     <td>
+      maxTenants
+    </td>
+<pre><code class="hljs">&lt;td&gt;
+  The maximum number of tenants that can be created in each Pulsar cluster. When the number of tenants reaches the threshold, the broker rejects the request of creating a new tenant. The default value 0 disables the check.
+&lt;/td&gt;
+
+&lt;td&gt;
+  0
+&lt;/td&gt;
+</code></pre>
+  </tr>
+  <tr>
+    <td>
+      maxNamespacesPerTenant
+    </td>
+<pre><code class="hljs">&lt;td&gt;
+  The maximum number of namespaces that can be created in each tenant. When the number of namespaces reaches this threshold, the broker rejects the request of creating a new tenant. The default value 0 disables the check.
+&lt;/td&gt;
+
+&lt;td&gt;
+  0
+&lt;/td&gt;
+</code></pre>
+  </tr>
+  <tr>
+    <td>
       brokerDeduplicationEnabled
     </td>
 <pre><code class="hljs">&lt;td&gt;
