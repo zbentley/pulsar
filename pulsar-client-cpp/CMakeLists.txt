@@ -17,7 +17,7 @@
 # under the License.
 #
 
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.22)
 project (pulsar-cpp)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
 
@@ -85,8 +85,10 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     # ?? Don't have this to test with
 else() # GCC or Clang are mostly compatible:
+    # Turn on color error messages and show additional help with errors (only available in GCC v4.9+):
+    add_compile_options(-fdiagnostics-show-option -fdiagnostics-color)
     # Turn on warnings and enable warnings-as-errors:
-    add_compile_options(-Wall -Wformat-security -Wvla -Werror) 
+    add_compile_options(-Wall -Wformat-security -Wvla -Werror)
     # Turn off certain warnings that are too much pain for too little gain:
     add_compile_options(-Wno-sign-compare -Wno-deprecated-declarations -Wno-error=cpp)
     if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
@@ -94,9 +96,13 @@ else() # GCC or Clang are mostly compatible:
     endif()
     # Options unique to Clang or GCC:
     if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        add_compile_options(-Qunused-arguments) 
-    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9))
-        add_compile_options(-Wno-stringop-truncation)
+        add_compile_options(-Qunused-arguments)
+    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9)
+            MESSAGE(FATAL_ERROR "GCC must be >4.9; got ${CMAKE_CXX_COMPILER_VERSION}")
+        elseif (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 8.0)
+            add_compile_options(-Wno-stringop-truncation)
+        endif()
     endif()
 endif()
 
@@ -119,7 +125,7 @@ if (APPLE)
     set(OPENSSL_ROOT_DIR /usr/local/opt/openssl/ /opt/homebrew/opt/openssl)
 endif ()
 
-set(OPENSSL_USE_STATIC_LIBS FALSE)
+set(OPENSSL_USE_STATIC_LIBS ${LINK_STATIC})
 find_package(OpenSSL REQUIRED)
 set(RECORD_OPENSSL_SSL_LIBRARY ${OPENSSL_SSL_LIBRARY})
 set(RECORD_OPENSSL_CRYPTO_LIBRARY ${OPENSSL_CRYPTO_LIBRARY})
@@ -138,7 +144,7 @@ if (LINK_STATIC)
     find_library(Protobuf_LIBRARIES NAMES libprotobuf.a libprotobuf)
     find_library(CURL_LIBRARIES NAMES libcurl.a curl curl_a libcurl_a)
     find_library(LIB_ZSTD NAMES libzstd.a)
-    find_library(LIB_SNAPPY NAMES libsnappy.a)
+    find_library(LIB_SNAPPY NAMES libsnappy-shared.a libsnappy.a)
     message(STATUS "Protobuf_LIBRARIES: ${Protobuf_LIBRARIES}")
     set(COMMON_LIBS ${Protobuf_LIBRARIES} ${COMMON_LIBS})
 
@@ -168,12 +174,9 @@ if (LINK_STATIC)
         set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
     endif()
 
-    SET(Boost_USE_STATIC_LIBS   ON)
-    SET(OPENSSL_USE_STATIC_LIBS TRUE)
 else()
     # Link to shared libraries
     find_package(ZLIB REQUIRED)
-    set(ZLIB_LIBRARIES ${ZLIB_LIBRARIES})
     # NOTE: The default MODULE mode may not find debug libraries so use CONFIG mode here
     unset(Protobuf_INCLUDE_DIRS CACHE)
     unset(Protobuf_LIBRARIES CACHE)
@@ -223,74 +226,24 @@ else()
     endif (USE_LOG4CXX)
 endif (LINK_STATIC)
 
-
-find_package(Boost)
-
-if (Boost_MAJOR_VERSION EQUAL 1 AND Boost_MINOR_VERSION LESS 69)
-    # Boost System does not require linking since 1.69
-    set(BOOST_COMPONENTS ${BOOST_COMPONENTS} system)
-    MESSAGE(STATUS "Linking with Boost:System")
-endif()
-
+SET(Boost_USE_STATIC_LIBS ${LINK_STATIC})
 if (MSVC)
   set(BOOST_COMPONENTS ${BOOST_COMPONENTS} date_time)
-endif()
-
-if (CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9)
-    # GCC 4.8.2 implementation of std::regex is buggy
-    set(BOOST_COMPONENTS ${BOOST_COMPONENTS} regex)
-    set(CMAKE_CXX_FLAGS " -DPULSAR_USE_BOOST_REGEX")
-    MESSAGE(STATUS "Using Boost::Regex")
-else()
-    MESSAGE(STATUS "Using std::regex")
-    # Turn on color error messages and show additional help with errors (only available in GCC v4.9+):
-    add_compile_options(-fdiagnostics-show-option -fdiagnostics-color)
 endif()
 
 if(BUILD_PERF_TOOLS)
     set(BOOST_COMPONENTS ${BOOST_COMPONENTS} program_options)
 endif()
 
-find_package(Boost REQUIRED COMPONENTS ${BOOST_COMPONENTS})
-
 if (BUILD_PYTHON_WRAPPER)
-    find_package(PythonLibs REQUIRED)
-    MESSAGE(STATUS "PYTHON: " ${PYTHONLIBS_VERSION_STRING})
-
-    if (PYTHONLIBS_VERSION_STRING MATCHES "^3.+$")
-        MESSAGE(STATUS "DETECTED Python 3")
-        string(REPLACE "." ";" PYTHONLIBS_VERSION_NO_LIST ${PYTHONLIBS_VERSION_STRING})
-        list(GET PYTHONLIBS_VERSION_NO_LIST 0 PYTHONLIBS_VERSION_MAJOR)
-        list(GET PYTHONLIBS_VERSION_NO_LIST 1 PYTHONLIBS_VERSION_MINOR)
-        set(BOOST_PYTHON_NAME_POSTFIX ${PYTHONLIBS_VERSION_MAJOR}${PYTHONLIBS_VERSION_MINOR})
-        # For python3 the lib name is boost_python3
-        set(BOOST_PYTHON_NAME_LIST python36;python37;python38;python39;python3;python3-mt;python-py${BOOST_PYTHON_NAME_POSTFIX};python${BOOST_PYTHON_NAME_POSTFIX}-mt;python${BOOST_PYTHON_NAME_POSTFIX})
-    else ()
-        # Regular boost_python
-        set(BOOST_PYTHON_NAME_LIST python;python-mt;python-py27;python27-mt;python27)
-    endif ()
-
-    foreach (BOOST_PYTHON_NAME IN LISTS BOOST_PYTHON_NAME_LIST)
-        find_package(Boost QUIET COMPONENTS ${BOOST_PYTHON_NAME})
-        if (${Boost_FOUND})
-            set(BOOST_PYTHON_NAME_FOUND ${BOOST_PYTHON_NAME})
-            break()
-        endif()
-    endforeach()
-
-    if (NOT ${Boost_FOUND})
-        MESSAGE(FATAL_ERROR "Could not find Boost Python library")
-    endif ()
-
-    find_package(Boost REQUIRED COMPONENTS ${BOOST_PYTHON_NAME_FOUND})
+    find_package(Python REQUIRED COMPONENTS Development)
+    set(BOOST_COMPONENTS ${BOOST_COMPONENTS} python37)
 endif (BUILD_PYTHON_WRAPPER)
 
-find_package(OpenSSL REQUIRED)
 
-if (BUILD_TESTS)
-    find_path(GTEST_INCLUDE_PATH gtest/gtest.h)
-    find_path(GMOCK_INCLUDE_PATH gmock/gmock.h)
-endif ()
+find_package(Boost REQUIRED COMPONENTS ${BOOST_COMPONENTS})
+
+find_package(OpenSSL REQUIRED)
 
 if (USE_LOG4CXX)
     set(CMAKE_CXX_FLAGS " -DUSE_LOG4CXX ${CMAKE_CXX_FLAGS}")
@@ -301,7 +254,7 @@ if (NOT APPLE AND NOT MSVC)
     # we don't set options below to build _pulsar.so
     set(CMAKE_CXX_FLAGS_PYTHON "${CMAKE_CXX_FLAGS}")
     # Hide all non-exported symbols to avoid conflicts
-    add_compile_options(-fvisibility=hidden) 
+    add_compile_options(-fvisibility=hidden)
     if (CMAKE_COMPILER_IS_GNUCC)
         add_compile_options(-Wl,--exclude-libs,ALL)
     endif ()

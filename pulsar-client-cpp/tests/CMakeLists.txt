@@ -41,16 +41,7 @@ set(PROTO_SOURCES ${PROTO_SOURCES} ${PROTO_SOURCE_PADDING})
 
 include_directories(${LIB_AUTOGEN_DIR})
 
-find_library(GMOCK_LIBRARY_PATH gmock)
-find_library(GTEST_LIBRARY_PATH gtest)
-find_library(GMOCKD_LIBRARY_PATH gmockd)
-find_library(GTESTD_LIBRARY_PATH gtestd)
-if (NOT GMOCKD_LIBRARY_PATH)
-    set(GMOCKD_LIBRARY_PATH ${GMOCK_LIBRARY_PATH})
-endif()
-if (NOT GTESTD_LIBRARY_PATH)
-    set(GTESTD_LIBRARY_PATH ${GTEST_LIBRARY_PATH})
-endif()
+find_package(GTest REQUIRED)
 
 file(GLOB TEST_SOURCES *.cc)
 
@@ -58,4 +49,4 @@ add_executable(main ${TEST_SOURCES} ${PROTO_SOURCES})
 
 target_include_directories(main PRIVATE ${CMAKE_SOURCE_DIR}/lib ${AUTOGEN_DIR}/lib)
 
-target_link_libraries(main ${CLIENT_LIBS} pulsarStatic $<$<CONFIG:Debug>:${GMOCKD_LIBRARY_PATH}> $<$<CONFIG:Debug>:${GTESTD_LIBRARY_PATH}> $<$<NOT:$<CONFIG:Debug>>:${GMOCK_LIBRARY_PATH}> $<$<NOT:$<CONFIG:Debug>>:${GTEST_LIBRARY_PATH}>)
+target_link_libraries(main ${CLIENT_LIBS} pulsarStatic GTest::gtest GTest::gtest_main)
