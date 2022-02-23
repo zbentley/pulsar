@@ -14,6 +14,7 @@ pulsar-functions/runtime/src/test/resources/
 pulsar-functions/worker/src/test/resources/
 *.log
 *.nar
+*.whl
 
 *.versionsBackup
 */bin
@@ -70,6 +71,7 @@ deployment/terraform-ansible/aws/terraform.tfstate.backup
 pulsar-client-cpp/python/pkg/osx/*/*.bak
 pulsar-client-cpp/python/pkg/osx/*/*.whl
 pulsar-client-cpp/python/wheelhouse
+pulsar-client-cpp/dist
 
 # CI generated files
 .repository
