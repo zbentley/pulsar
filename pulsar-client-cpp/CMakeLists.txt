@@ -116,29 +116,6 @@ endif(NOT LOG_CATEGORY_NAME)
 
 add_definitions(-DLOG_CATEGORY_NAME=${LOG_CATEGORY_NAME} -DBUILDING_PULSAR -DBOOST_ALL_NO_LIB -DBOOST_ALLOW_DEPRECATED_HEADERS)
 
-set(OPENSSL_ROOT_DIR /usr/lib64/)
-
-### This part is to find and keep SSL dynamic libs in RECORD_OPENSSL_SSL_LIBRARY and RECORD_OPENSSL_CRYPTO_LIBRARY
-### After find the libs, will unset related cache, and will not affact another same call to find_package.
-if (APPLE)
-    set(OPENSSL_INCLUDE_DIR /usr/local/opt/openssl/include/ /opt/homebrew/opt/openssl/include)
-    set(OPENSSL_ROOT_DIR /usr/local/opt/openssl/ /opt/homebrew/opt/openssl)
-endif ()
-
-set(OPENSSL_USE_STATIC_LIBS ${LINK_STATIC})
-find_package(OpenSSL REQUIRED)
-set(RECORD_OPENSSL_SSL_LIBRARY ${OPENSSL_SSL_LIBRARY})
-set(RECORD_OPENSSL_CRYPTO_LIBRARY ${OPENSSL_CRYPTO_LIBRARY})
-
-unset(OPENSSL_FOUND CACHE)
-unset(OPENSSL_INCLUDE_DIR CACHE)
-unset(OPENSSL_CRYPTO_LIBRARY CACHE)
-unset(OPENSSL_CRYPTO_LIBRARIES CACHE)
-unset(OPENSSL_SSL_LIBRARY CACHE)
-unset(OPENSSL_SSL_LIBRARIES CACHE)
-unset(OPENSSL_LIBRARIES CACHE)
-unset(OPENSSL_VERSION CACHE)
-
 if (LINK_STATIC)
     find_library(ZLIB_LIBRARIES REQUIRED NAMES libz.a z zlib)
     find_library(Protobuf_LIBRARIES NAMES libprotobuf.a libprotobuf)
@@ -240,7 +217,7 @@ if (BUILD_PYTHON_WRAPPER)
     set(BOOST_COMPONENTS ${BOOST_COMPONENTS} python37)
 endif (BUILD_PYTHON_WRAPPER)
 
-
+set(BOOST_COMPONENTS ${BOOST_COMPONENTS} regex)
 find_package(Boost REQUIRED COMPONENTS ${BOOST_COMPONENTS})
 
 find_package(OpenSSL REQUIRED)
@@ -252,7 +229,6 @@ endif (USE_LOG4CXX)
 
 if (NOT APPLE AND NOT MSVC)
     # we don't set options below to build _pulsar.so
-    set(CMAKE_CXX_FLAGS_PYTHON "${CMAKE_CXX_FLAGS}")
     # Hide all non-exported symbols to avoid conflicts
     add_compile_options(-fvisibility=hidden)
     if (CMAKE_COMPILER_IS_GNUCC)
@@ -300,7 +276,7 @@ set(COMMON_LIBS
   ${Boost_REGEX_LIBRARY}
   ${Boost_SYSTEM_LIBRARY}
   ${CURL_LIBRARIES}
-  ${OPENSSL_LIBRARIES}
+  OpenSSL::SSL
   ${ZLIB_LIBRARIES}
   ${ADDITIONAL_LIBRARIES}
   ${CMAKE_DL_LIBS}

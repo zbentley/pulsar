@@ -88,7 +88,7 @@ class PulsarDependencyDockerInstall(ABC):
 
 
 class MakefileDependency(PulsarDependencyDockerInstall):
-    def __init__(self, url: str, name: str, version: str, inline=False, configure_stanza='./configure'):
+    def __init__(self, url: str, name: str, version: str, inline=False, configure_stanza='test -e configure && ./configure || true'):
         super(MakefileDependency, self).__init__(name, version, url)
         self.configure_stanza = configure_stanza
         self.inline = inline
@@ -102,7 +102,6 @@ class MakefileDependency(PulsarDependencyDockerInstall):
     def _build_stanza(self) -> List[str]:
         yield self.download(self.url)
         yield self.configure_stanza
-        yield 'test -e configure && ./configure || true'  # Some things don't have a configure script
         yield 'make -j$(nproc)'
 
     def incorporate_build(self):
@@ -188,7 +187,7 @@ class PulsarBoostDependency(PulsarDependencyDockerInstall):
     def _build_stanza(self) -> List[str]:
         yield self.download(self.url)
         yield 'test -e /usr/local/include/python || ln -s /usr/local/include/python3.7m/ /usr/local/include/python3.7'
-        yield './bootstrap.sh --with-libraries=program_options,filesystem,thread,system,python'
+        yield './bootstrap.sh --with-libraries=program_options,filesystem,thread,system,python,regex'
         yield './b2 cxxflags="${CXXFLAGS}" -d0 -q -j $(nproc) address-model=64 link=static threading=multi variant=release install'
         yield 'rm -rf $(pwd)'
 
@@ -196,11 +195,27 @@ class PulsarBoostDependency(PulsarDependencyDockerInstall):
 def dockerfile_lines():
     base_image = 'arm64v8/debian:9'
 
-    makefile_dependencies = [
+    cmake = MakefileDependency(
+        version='3.22.2',
+        url='https://github.com/Kitware/CMake/archive/v{version}.tar.gz',
+        configure_stanza='./bootstrap --parallel=$(nproc)',
+        name='cmake',
+        inline=True,
+    )
+
+    layer_dependencies = [
+        # We install protobuf because most debian-distributed versions are both pretty old and not built with -fPIC
         MakefileDependency(
-            version='3.17.3',
+            version='3.19.2',
             url='https://github.com/protocolbuffers/protobuf/releases/download/v{version}/protobuf-cpp-{version}.tar.gz',
             name='protobuf',
+        ),
+        # The debian-distributed zlib packages aren't built with -fPIC, so install from source. This installation
+        # overwrites the dpkg-installed zlib.
+        MakefileDependency(
+            version='1.2.11',
+            url='https://zlib.net/zlib-{version}.tar.gz',
+            name='zlib',
         ),
         MakefileDependency(
             name='curl',
@@ -218,10 +233,22 @@ def dockerfile_lines():
             url='https://github.com/google/snappy/releases/download/{version}/snappy-{version}.tar.gz',
             name='snappy',
         ),
+        # Needed because the system available version is afflicted by https://github.com/pypa/auditwheel/issues/103
+        # Versions past 0.12 depend on "optional" in c++, which I'm not quite sure how to get, so this version will do
+        # for now.
         MakefileDependency(
-            version='3.22.2',
-            url='https://github.com/Kitware/CMake/archive/v{version}.tar.gz',
-            name='cmake',
+            version='0.12',
+            url='https://github.com/NixOS/patchelf/archive/refs/tags/{version}.tar.gz',
+            name='patchelf',
+            configure_stanza='./bootstrap.sh && ./configure',
+        ),
+        # Installed from source because, for some reason, cmake's FindGtest has trouble locating the dpkg-installed
+        # version.
+        MakefileDependency(
+            version='1.10.0',
+            url='https://github.com/google/googletest/archive/refs/tags/release-{version}.tar.gz',
+            configure_stanza='cmake .',
+            name='gtest',
         ),
     ]
 
@@ -237,32 +264,25 @@ def dockerfile_lines():
             'build-essential',
             'wget',
             'libtool',
+            'autoconf',  # Needed for patchelf's build.
             'openssl',
             'libssl-dev',
-            'zlib1g',
-            'zlib1g-dev',
+            # 'zlib1g',
+            # 'zlib1g-dev',
             'xz-utils',
-            'patchelf',
-            'googletest',  # TODO REMOVE
-            'libgtest-dev',  # TODO REMOVE
         )),
         # Curl is already present on some distributions. Python isn't on most Debians, but may be on others.
-        PulsarDependencyDockerInstall.package_uninstall(('curl', 'python', 'python3')),
-        RUN('rm -rf /usr/lib/python*')
+        PulsarDependencyDockerInstall.package_uninstall(('curl', 'python', 'python3', 'zlib1g-dev')),
+        RUN('rm -rf /usr/lib/python*'),
+        *cmake.execute_build(),
+        *cmake.incorporate_build(),
     ]
 
-    for md in makefile_dependencies:
+    for md in layer_dependencies:
         template.extend(md.execute_build())
 
     boost = PulsarBoostDependency(version='1.72.0')
     python = PulsarPythonDependency(version='3.7.12')
-    gtest = MakefileDependency(
-        version='1.10.0',
-        url='https://github.com/google/googletest/archive/refs/tags/release-{version}.tar.gz',
-        configure_stanza='cmake .',
-        name='gtest',
-        inline=True,
-    )
     template.extend((
         '\n',
         '#' * 120,
@@ -270,44 +290,46 @@ def dockerfile_lines():
         *python.execute_build(),
         *boost.execute_build()
     ))
-    for md in makefile_dependencies:
+    for md in layer_dependencies:
         template.extend((
             '\n',
             f'# Incorporate build {md.layer_name}'
         ))
         template.extend(md.incorporate_build())
+
     template.extend((
         RUN(
             'python -m ensurepip --upgrade',
             'python -m pip install --upgrade pip',
-            'python -m pip install --upgrade pip six certifi auditwheel setuptools wheel',
+            f'python -m pip install --upgrade pip six grpcio-tools==1.44.0 certifi auditwheel setuptools wheel',
             'pip cache purge',
         ),
-        *gtest.execute_build(),
-        *gtest.incorporate_build(),
         COPY('./', '/pulsar/build/'),
         'WORKDIR /pulsar/build/pulsar-client-cpp',
         RUN(
             'test -e /usr/local/lib/python || ln -s /usr/local/lib/python* /usr/local/lib/python'
             'test -e /usr/local/include/python || ln -s /usr/local/lib/python* /usr/local/include/python'
         ),
+        ENV('CXXFLAGS', ''),
+        ENV('CFLAGS', ''),
         RUN(
             'find . -name CMakeCache.txt | xargs -r rm -rf',
             'find . -name CMakeFiles.txt | xargs -r rm -rf',
             r'find . -name \*.egg-info | xargs -r rm -rf',
             'rm -rf python/wheelhouse python/build python/dist',
-            'cmake . -DLINK_STATIC=ON  -DBUILD_TESTS=ON',
+            'cmake . -DLINK_STATIC=ON -DBUILD_TESTS=ON',
             'make clean',
-            'make _pulsar -j$(nproc)',
+            'make pulsarShared pulsarStatic _pulsar -j$(nproc)',
         ),
         'WORKDIR /pulsar/build/pulsar-client-cpp/python',
         RUN(
             'python setup.py bdist_wheel',
-            'auditwheel repair dist/pulsar_client*.whl',
+            'auditwheel --verbose repair --plat manylinux_2_24_$(arch) dist/pulsar_client*.whl',
             'pip install wheelhouse/*.whl',
             'cd /',
-            # Make sure it works.
-            'python -c "import pulsar"'
+            'python -c "import pulsar"',
+            # Make sure it works, and works in the presence of grpcio-tools.
+            'python -c "import logging; from grpc_tools.protoc import main as protoc; import pulsar;git "',
         ),
     ))
     return template
