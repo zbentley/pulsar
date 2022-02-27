@@ -86,3 +86,8 @@ CMakeSettings.json
 
 # vcpkg dependencies directory
 vcpkg_installed/
+
+# Client packaging files
+pulsar-client-cpp/dist
+pulsar-client-cpp/pkg/Dockerfile
+*.whl

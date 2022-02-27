@@ -17,7 +17,7 @@
 # under the License.
 #
 
-INCLUDE_DIRECTORIES("${Boost_INCLUDE_DIRS}" "${PYTHON_INCLUDE_DIRS}")
+INCLUDE_DIRECTORIES("${Boost_INCLUDE_DIRS}" "${Python_INCLUDE_DIRS}")
 
 ADD_LIBRARY(_pulsar SHARED src/pulsar.cc
                            src/producer.cc
@@ -34,10 +34,6 @@ ADD_LIBRARY(_pulsar SHARED src/pulsar.cc
 
 SET(CMAKE_SHARED_LIBRARY_PREFIX )
 SET(CMAKE_SHARED_LIBRARY_SUFFIX .so)
-
-if (NOT APPLE AND NOT MSVC)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_PYTHON}")
-endif()
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS} -Qunused-arguments -undefined dynamic_lookup")
@@ -96,8 +92,5 @@ if (APPLE)
     set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS} -undefined dynamic_lookup")
     target_link_libraries(_pulsar -Wl,-all_load pulsarStatic ${PYTHON_WRAPPER_LIBS} ${COMMON_LIBS} ${ICU_LIBS})
 else ()
-    if (NOT MSVC)
-      set (CMAKE_SHARED_LINKER_FLAGS " -static-libgcc  -static-libstdc++")
-    endif()
     target_link_libraries(_pulsar pulsarStatic ${PYTHON_WRAPPER_LIBS} ${COMMON_LIBS})
 endif ()
