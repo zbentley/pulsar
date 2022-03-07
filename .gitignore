@@ -73,6 +73,9 @@ pulsar-client-cpp/python/pkg/osx/*/*.whl
 pulsar-client-cpp/python/wheelhouse
 pulsar-client-cpp/dist
 
+# This is generated as part of the client build:
+pulsar-client-cpp/pkg/Dockerfile
+
 # CI generated files
 .repository
 docker.debug-info
