@@ -103,9 +103,13 @@ else() # GCC or Clang are mostly compatible:
     endif()
     # Options unique to Clang or GCC:
     if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        add_compile_options(-Qunused-arguments) 
-    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.1))
-        add_compile_options(-Wno-stringop-truncation)
+        add_compile_options(-Qunused-arguments)
+    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9)
+            MESSAGE(FATAL_ERROR "GCC must be >4.9; got ${CMAKE_CXX_COMPILER_VERSION}")
+        elseif (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 8.0)
+            add_compile_options(-Wno-stringop-truncation)
+        endif()
     endif()
 endif()
 
