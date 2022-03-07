@@ -155,6 +155,7 @@ public class PersistentStickyKeyDispatcherMultipleConsumers extends PersistentDi
     protected void sendMessagesToConsumers(ReadType readType, List<Entry> entries) {
         long totalMessagesSent = 0;
         long totalBytesSent = 0;
+        long totalEntries = 0;
         int entriesCount = entries.size();
 
         // Trigger read more messages
@@ -213,6 +214,7 @@ public class PersistentStickyKeyDispatcherMultipleConsumers extends PersistentDi
                 groupedEntries.computeIfAbsent(c, k -> new ArrayList<>()).add(entry);
                 consumerStickyKeyHashesMap.computeIfAbsent(c, k -> new HashSet<>()).add(stickyKeyHash);
             } else {
+                addMessageToReplay(entry.getLedgerId(), entry.getEntryId(), stickyKeyHash);
                 entry.release();
             }
         }
@@ -260,8 +262,8 @@ public class PersistentStickyKeyDispatcherMultipleConsumers extends PersistentDi
                 SendMessageInfo sendMessageInfo = SendMessageInfo.getThreadLocal();
                 EntryBatchSizes batchSizes = EntryBatchSizes.get(messagesForC);
                 EntryBatchIndexesAcks batchIndexesAcks = EntryBatchIndexesAcks.get(messagesForC);
-                filterEntriesForConsumer(entriesWithSameKey, batchSizes, sendMessageInfo, batchIndexesAcks, cursor,
-                        readType == ReadType.Replay);
+                totalEntries += filterEntriesForConsumer(entriesWithSameKey, batchSizes, sendMessageInfo,
+                        batchIndexesAcks, cursor, readType == ReadType.Replay);
 
                 consumer.sendMessages(entriesWithSameKey, batchSizes, batchIndexesAcks,
                         sendMessageInfo.getTotalMessages(),
@@ -283,12 +285,16 @@ public class PersistentStickyKeyDispatcherMultipleConsumers extends PersistentDi
 
         // acquire message-dispatch permits for already delivered messages
         if (serviceConfig.isDispatchThrottlingOnNonBacklogConsumerEnabled() || !cursor.isActive()) {
+            long permits = dispatchThrottlingOnBatchMessageEnabled ? totalEntries : totalMessagesSent;
+            if (topic.getBrokerDispatchRateLimiter().isPresent()) {
+                topic.getBrokerDispatchRateLimiter().get().tryDispatchPermit(permits, totalBytesSent);
+            }
             if (topic.getDispatchRateLimiter().isPresent()) {
-                topic.getDispatchRateLimiter().get().tryDispatchPermit(totalMessagesSent, totalBytesSent);
+                topic.getDispatchRateLimiter().get().tryDispatchPermit(permits, totalBytesSent);
             }
 
             if (dispatchRateLimiter.isPresent()) {
-                dispatchRateLimiter.get().tryDispatchPermit(totalMessagesSent, totalBytesSent);
+                dispatchRateLimiter.get().tryDispatchPermit(permits, totalBytesSent);
             }
         }
 
@@ -314,7 +320,7 @@ public class PersistentStickyKeyDispatcherMultipleConsumers extends PersistentDi
             }
             // readMoreEntries should run regardless whether or not stuck is caused by
             // stuckConsumers for avoid stopping dispatch.
-            readMoreEntries();
+            topic.getBrokerService().executor().execute(() -> readMoreEntries());
         }  else if (currentThreadKeyNumber == 0) {
             topic.getBrokerService().executor().schedule(() -> {
                 synchronized (PersistentStickyKeyDispatcherMultipleConsumers.this) {
@@ -446,16 +452,21 @@ public class PersistentStickyKeyDispatcherMultipleConsumers extends PersistentDi
         return this.keySharedMode;
     }
 
+    public boolean isAllowOutOfOrderDelivery() {
+        return this.allowOutOfOrderDelivery;
+    }
+
+    public boolean hasSameKeySharedPolicy(KeySharedMeta ksm) {
+        return (ksm.getKeySharedMode() == this.keySharedMode
+                && ksm.isAllowOutOfOrderDelivery() == this.allowOutOfOrderDelivery);
+    }
+
     public LinkedHashMap<Consumer, PositionImpl> getRecentlyJoinedConsumers() {
         return recentlyJoinedConsumers;
     }
 
     public Map<Consumer, List<Range>> getConsumerKeyHashRanges() {
         return selector.getConsumerKeyHashRanges();
-    }
-
-    public boolean isAllowOutOfOrderDelivery() {
-        return allowOutOfOrderDelivery;
     }
 
     private static final Logger log = LoggerFactory.getLogger(PersistentStickyKeyDispatcherMultipleConsumers.class);

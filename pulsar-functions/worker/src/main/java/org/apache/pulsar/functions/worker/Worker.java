@@ -31,8 +31,6 @@ import org.apache.pulsar.common.configuration.PulsarConfigurationLoader;
 import org.apache.pulsar.functions.worker.rest.WorkerServer;
 import org.apache.pulsar.functions.worker.service.WorkerServiceLoader;
 import org.apache.pulsar.metadata.api.extended.MetadataStoreExtended;
-import org.apache.pulsar.zookeeper.ZooKeeperClientFactory;
-import org.apache.pulsar.zookeeper.ZookeeperBkClientFactoryImpl;
 
 @Slf4j
 public class Worker {
@@ -41,8 +39,8 @@ public class Worker {
     private final WorkerService workerService;
     private WorkerServer server;
 
-    private ZooKeeperClientFactory zkClientFactory = null;
-    private final OrderedExecutor orderedExecutor = OrderedExecutor.newBuilder().numThreads(8).name("zk-cache-ordered").build();
+    private final OrderedExecutor orderedExecutor =
+            OrderedExecutor.newBuilder().numThreads(8).name("zk-cache-ordered").build();
     private PulsarResources pulsarResources;
     private MetadataStoreExtended configMetadataStore;
     private final ErrorNotifier errorNotifier;
@@ -76,8 +74,9 @@ public class Worker {
 
             log.info("starting configuration cache service");
             try {
-                configMetadataStore = PulsarResources.createMetadataStore(workerConfig.getConfigurationStoreServers(),
-                        (int) workerConfig.getZooKeeperSessionTimeoutMillis());
+                configMetadataStore = PulsarResources.createMetadataStore(
+                        workerConfig.getConfigurationMetadataStoreUrl(),
+                        (int) workerConfig.getMetadataStoreSessionTimeoutMillis());
             } catch (IOException e) {
                 throw new PulsarServerException(e);
             }
@@ -91,21 +90,13 @@ public class Worker {
         return new AuthenticationService(getServiceConfiguration());
     }
 
-    public ZooKeeperClientFactory getZooKeeperClientFactory() {
-        if (zkClientFactory == null) {
-            zkClientFactory = new ZookeeperBkClientFactoryImpl(orderedExecutor);
-        }
-        // Return default factory
-        return zkClientFactory;
-    }
-
     protected void stop() {
         try {
             if (null != this.server) {
                 this.server.stop();
             }
             workerService.stop();
-        } catch(Exception e) {
+        } catch (Exception e) {
             log.warn("Failed to gracefully stop worker service ", e);
         }
 

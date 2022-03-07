@@ -33,7 +33,6 @@ import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.common.policies.data.ClusterData;
-import org.apache.pulsar.common.policies.data.ClusterDataImpl;
 import org.apache.pulsar.common.policies.data.TenantInfoImpl;
 import org.apache.pulsar.zookeeper.LocalBookkeeperEnsemble;
 import org.testng.Assert;
@@ -60,7 +59,7 @@ public class MaxMessageSizeTest {
             bkEnsemble.startStandalone(conf, false);
 
             configuration = new ServiceConfiguration();
-            configuration.setZookeeperServers("127.0.0.1:" + bkEnsemble.getZookeeperPort());
+            configuration.setMetadataStoreUrl("zk:127.0.0.1:" + bkEnsemble.getZookeeperPort());
             configuration.setAdvertisedAddress("localhost");
             configuration.setWebServicePort(Optional.of(0));
             configuration.setClusterName("max_message_test");

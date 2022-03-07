@@ -80,54 +80,71 @@ public class TopicLookupBase extends PulsarWebResource {
             return;
         }
 
-        CompletableFuture<Optional<LookupResult>> lookupFuture = pulsar().getNamespaceService()
-                .getBrokerServiceUrlAsync(topicName,
-                        LookupOptions.builder().advertisedListenerName(listenerName)
-                                .authoritative(authoritative).loadTopicsInBundle(false).build());
-
-        lookupFuture.thenAccept(optionalResult -> {
-            if (optionalResult == null || !optionalResult.isPresent()) {
-                log.warn("No broker was found available for topic {}", topicName);
-                completeLookupResponseExceptionally(asyncResponse,
-                        new WebApplicationException(Response.Status.SERVICE_UNAVAILABLE));
+        // Currently, it's hard to check the non-persistent-non-partitioned topic, because it only exists in the broker,
+        // it doesn't have metadata. If the topic is non-persistent and non-partitioned, we'll return the true flag.
+        CompletableFuture<Boolean> existFuture = pulsar().getBrokerService().isAllowAutoTopicCreation(topicName)
+                || (!topicName.isPersistent() && !topicName.isPartitioned())
+                ? CompletableFuture.completedFuture(true) : pulsar().getNamespaceService().checkTopicExists(topicName);
+        existFuture.thenAccept(exist -> {
+            if (!exist) {
+                completeLookupResponseExceptionally(asyncResponse, new RestException(Response.Status.NOT_FOUND,
+                        "Topic not found."));
                 return;
             }
+            CompletableFuture<Optional<LookupResult>> lookupFuture = pulsar().getNamespaceService()
+                    .getBrokerServiceUrlAsync(topicName,
+                            LookupOptions.builder().advertisedListenerName(listenerName)
+                                    .authoritative(authoritative).loadTopicsInBundle(false).build());
 
-            LookupResult result = optionalResult.get();
-            // We have found either a broker that owns the topic, or a broker to which we should redirect the client to
-            if (result.isRedirect()) {
-                boolean newAuthoritative = result.isAuthoritativeRedirect();
-                URI redirect;
-                try {
-                    String redirectUrl = isRequestHttps() ? result.getLookupData().getHttpUrlTls()
-                            : result.getLookupData().getHttpUrl();
-                    checkNotNull(redirectUrl, "Redirected cluster's service url is not configured");
-                    String lookupPath = topicName.isV2() ? LOOKUP_PATH_V2 : LOOKUP_PATH_V1;
-                    String path = String.format("%s%s%s?authoritative=%s",
-                            redirectUrl, lookupPath, topicName.getLookupName(), newAuthoritative);
-                    path = listenerName == null ? path : path + "&listenerName=" + listenerName;
-                    redirect = new URI(path);
-                } catch (URISyntaxException | NullPointerException e) {
-                    log.error("Error in preparing redirect url for {}: {}", topicName, e.getMessage(), e);
-                    completeLookupResponseExceptionally(asyncResponse, e);
+            lookupFuture.thenAccept(optionalResult -> {
+                if (optionalResult == null || !optionalResult.isPresent()) {
+                    log.warn("No broker was found available for topic {}", topicName);
+                    completeLookupResponseExceptionally(asyncResponse,
+                            new WebApplicationException(Response.Status.SERVICE_UNAVAILABLE));
                     return;
                 }
-                if (log.isDebugEnabled()) {
-                    log.debug("Redirect lookup for topic {} to {}", topicName, redirect);
-                }
-                completeLookupResponseExceptionally(asyncResponse,
-                        new WebApplicationException(Response.temporaryRedirect(redirect).build()));
 
-            } else {
-                // Found broker owning the topic
-                if (log.isDebugEnabled()) {
-                    log.debug("Lookup succeeded for topic {} -- broker: {}", topicName, result.getLookupData());
+                LookupResult result = optionalResult.get();
+                // We have found either a broker that owns the topic, or a broker to
+                // which we should redirect the client to
+                if (result.isRedirect()) {
+                    boolean newAuthoritative = result.isAuthoritativeRedirect();
+                    URI redirect;
+                    try {
+                        String redirectUrl = isRequestHttps() ? result.getLookupData().getHttpUrlTls()
+                                : result.getLookupData().getHttpUrl();
+                        checkNotNull(redirectUrl, "Redirected cluster's service url is not configured");
+                        String lookupPath = topicName.isV2() ? LOOKUP_PATH_V2 : LOOKUP_PATH_V1;
+                        String path = String.format("%s%s%s?authoritative=%s",
+                                redirectUrl, lookupPath, topicName.getLookupName(), newAuthoritative);
+                        path = listenerName == null ? path : path + "&listenerName=" + listenerName;
+                        redirect = new URI(path);
+                    } catch (URISyntaxException | NullPointerException e) {
+                        log.error("Error in preparing redirect url for {}: {}", topicName, e.getMessage(), e);
+                        completeLookupResponseExceptionally(asyncResponse, e);
+                        return;
+                    }
+                    if (log.isDebugEnabled()) {
+                        log.debug("Redirect lookup for topic {} to {}", topicName, redirect);
+                    }
+                    completeLookupResponseExceptionally(asyncResponse,
+                            new WebApplicationException(Response.temporaryRedirect(redirect).build()));
+
+                } else {
+                    // Found broker owning the topic
+                    if (log.isDebugEnabled()) {
+                        log.debug("Lookup succeeded for topic {} -- broker: {}", topicName, result.getLookupData());
+                    }
+                    completeLookupResponseSuccessfully(asyncResponse, result.getLookupData());
                 }
-                completeLookupResponseSuccessfully(asyncResponse, result.getLookupData());
-            }
-        }).exceptionally(exception -> {
-            log.warn("Failed to lookup broker for topic {}: {}", topicName, exception.getMessage(), exception);
-            completeLookupResponseExceptionally(asyncResponse, exception);
+            }).exceptionally(exception -> {
+                log.warn("Failed to lookup broker for topic {}: {}", topicName, exception.getMessage(), exception);
+                completeLookupResponseExceptionally(asyncResponse, exception);
+                return null;
+            });
+        }).exceptionally(e -> {
+            log.warn("Failed to check exist for topic {}: {} when lookup", topicName, e.getMessage(), e);
+            completeLookupResponseExceptionally(asyncResponse, e);
             return null;
         });
     }

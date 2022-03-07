@@ -184,7 +184,7 @@ BookKeeper bookies can be configured using the [`conf/bookkeeper.conf`](referenc
 
 You can start up a bookie in two ways: in the foreground or as a background daemon.
 
-To start up a bookie in the foreground, use the [`bookeeper`](reference-cli-tools.md#bookkeeper)
+To start up a bookie in the foreground, use the [`bookkeeper`](reference-cli-tools.md#bookkeeper)
 
 ```shell
 $ bin/pulsar-daemon start bookie
@@ -228,6 +228,9 @@ ledgerDirectories=data/bookkeeper/ledgers
 
 # Point to local ZK quorum
 zkServers=zk1.example.com:2181,zk2.example.com:2181,zk3.example.com:2181
+
+#It is recommended to set this parameter. Otherwise, BookKeeper can't start normally in certain environments (for example, Huawei Cloud).
+advertisedAddress=
 ```
 
 To change the zookeeper root path used by Bookkeeper, use zkLedgersRootPath=/MY-PREFIX/ledgers instead of zkServers=localhost:2181/MY-PREFIX
@@ -263,7 +266,7 @@ Flag | Description | Default
 ```shell
 $ pulsar-admin namespaces set-persistence my-tenant/my-ns \
   --bookkeeper-ack-quorum 3 \
-  --bookeeper-ensemble 2
+  --bookkeeper-ensemble 2
 ```
 
 #### REST API

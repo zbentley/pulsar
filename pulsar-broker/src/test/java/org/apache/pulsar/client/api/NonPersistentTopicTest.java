@@ -66,6 +66,7 @@ import org.apache.pulsar.zookeeper.LocalBookkeeperEnsemble;
 import org.apache.pulsar.zookeeper.ZookeeperServerTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -112,12 +113,16 @@ public class NonPersistentTopicTest extends ProducerConsumerBase {
             final String topicPartitionName = "non-persistent://public/default/issue-9173-partition-0";
 
             // Then error when subscribe to a partition of a non-persistent topic that does not exist
-            assertThrows(PulsarClientException.TopicDoesNotExistException.class,
+            assertThrows(PulsarClientException.NotFoundException.class,
                     () -> pulsarClient.newConsumer().topic(topicPartitionName).subscriptionName("sub-issue-9173").subscribe());
 
             // Then error when produce to a partition of a non-persistent topic that does not exist
-            assertThrows(PulsarClientException.TopicDoesNotExistException.class,
-                    () -> pulsarClient.newProducer().topic(topicPartitionName).create());
+            try {
+                pulsarClient.newProducer().topic(topicPartitionName).create();
+                Assert.fail("Should failed due to topic not exist");
+            } catch (Exception e) {
+                assertTrue(e instanceof PulsarClientException.NotFoundException);
+            }
         } finally {
             conf.setAllowAutoTopicCreation(defaultAllowAutoTopicCreation);
         }
@@ -491,7 +496,7 @@ public class NonPersistentTopicTest extends ProducerConsumerBase {
         assertNotNull(topicRef);
 
         rolloverPerIntervalStats(pulsar);
-        stats = topicRef.getStats(false, false);
+        stats = topicRef.getStats(false, false, false);
         subStats = stats.getSubscriptions().values().iterator().next();
 
         // subscription stats
@@ -509,7 +514,7 @@ public class NonPersistentTopicTest extends ProducerConsumerBase {
         Thread.sleep(timeWaitToSync);
 
         rolloverPerIntervalStats(pulsar);
-        stats = topicRef.getStats(false, false);
+        stats = topicRef.getStats(false, false, false);
         subStats = stats.getSubscriptions().values().iterator().next();
 
         assertTrue(subStats.getMsgRateOut() > 0);
@@ -576,7 +581,7 @@ public class NonPersistentTopicTest extends ProducerConsumerBase {
             assertNotNull(replicatorR3);
 
             rolloverPerIntervalStats(replicationPulasr);
-            stats = topicRef.getStats(false, false);
+            stats = topicRef.getStats(false, false, false);
             subStats = stats.getSubscriptions().values().iterator().next();
 
             // subscription stats
@@ -647,7 +652,7 @@ public class NonPersistentTopicTest extends ProducerConsumerBase {
             Thread.sleep(timeWaitToSync);
 
             rolloverPerIntervalStats(replicationPulasr);
-            stats = topicRef.getStats(false, false);
+            stats = topicRef.getStats(false, false, false);
             subStats = stats.getSubscriptions().values().iterator().next();
 
             assertTrue(subStats.getMsgRateOut() > 0);
@@ -863,7 +868,7 @@ public class NonPersistentTopicTest extends ProducerConsumerBase {
 
             NonPersistentTopic topic = (NonPersistentTopic) pulsar.getBrokerService().getOrCreateTopic(topicName).get();
             pulsar.getBrokerService().updateRates();
-            NonPersistentTopicStats stats = topic.getStats(false, false);
+            NonPersistentTopicStats stats = topic.getStats(false, false, false);
             NonPersistentPublisherStats npStats = stats.getPublishers().get(0);
             NonPersistentSubscriptionStats sub1Stats = stats.getSubscriptions().get("subscriber-1");
             NonPersistentSubscriptionStats sub2Stats = stats.getSubscriptions().get("subscriber-2");
@@ -933,8 +938,8 @@ public class NonPersistentTopicTest extends ProducerConsumerBase {
             config1.setClusterName(configClusterName);
             config1.setAdvertisedAddress("localhost");
             config1.setWebServicePort(Optional.of(0));
-            config1.setZookeeperServers("127.0.0.1:" + bkEnsemble1.getZookeeperPort());
-            config1.setConfigurationStoreServers("127.0.0.1:" + globalZkS.getZookeeperPort() + "/foo");
+            config1.setMetadataStoreUrl("zk:127.0.0.1:" + bkEnsemble1.getZookeeperPort());
+            config1.setConfigurationMetadataStoreUrl("zk:127.0.0.1:" + globalZkS.getZookeeperPort() + "/foo");
             config1.setBrokerDeleteInactiveTopicsEnabled(isBrokerServicePurgeInactiveTopic());
             config1.setBrokerDeleteInactiveTopicsFrequencySeconds(
                     inSec(getBrokerServicePurgeInactiveFrequency(), TimeUnit.SECONDS));
@@ -959,8 +964,8 @@ public class NonPersistentTopicTest extends ProducerConsumerBase {
             config2.setClusterName("r2");
             config2.setWebServicePort(Optional.of(0));
             config2.setAdvertisedAddress("localhost");
-            config2.setZookeeperServers("127.0.0.1:" + bkEnsemble2.getZookeeperPort());
-            config2.setConfigurationStoreServers("127.0.0.1:" + globalZkS.getZookeeperPort() + "/foo");
+            config2.setMetadataStoreUrl("zk:127.0.0.1:" + bkEnsemble2.getZookeeperPort());
+            config2.setConfigurationMetadataStoreUrl("zk:127.0.0.1:" + globalZkS.getZookeeperPort() + "/foo");
             config2.setBrokerDeleteInactiveTopicsEnabled(isBrokerServicePurgeInactiveTopic());
             config2.setBrokerDeleteInactiveTopicsFrequencySeconds(
                     inSec(getBrokerServicePurgeInactiveFrequency(), TimeUnit.SECONDS));
@@ -985,8 +990,8 @@ public class NonPersistentTopicTest extends ProducerConsumerBase {
             config3.setClusterName("r3");
             config3.setWebServicePort(Optional.of(0));
             config3.setAdvertisedAddress("localhost");
-            config3.setZookeeperServers("127.0.0.1:" + bkEnsemble3.getZookeeperPort());
-            config3.setConfigurationStoreServers("127.0.0.1:" + globalZkS.getZookeeperPort() + "/foo");
+            config3.setMetadataStoreUrl("zk:127.0.0.1:" + bkEnsemble3.getZookeeperPort());
+            config3.setConfigurationMetadataStoreUrl("zk:127.0.0.1:" + globalZkS.getZookeeperPort() + "/foo");
             config3.setBrokerDeleteInactiveTopicsEnabled(isBrokerServicePurgeInactiveTopic());
             config3.setBrokerDeleteInactiveTopicsFrequencySeconds(
                     inSec(getBrokerServicePurgeInactiveFrequency(), TimeUnit.SECONDS));

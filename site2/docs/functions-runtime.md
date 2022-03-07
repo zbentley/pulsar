@@ -131,6 +131,9 @@ functionRuntimeFactoryConfigs:
   narExtractionDirectory:
   # The classpath where function instance files stored
   functionInstanceClassPath:
+  # Upload the builtin sources/sinks to BookKeeper.
+  # True by default.
+  uploadBuiltinSinksSources: true
   # the directory for dropping extra function dependencies
   # if it is not an absolute path, it is relative to `pulsarRootDir`
   extraFunctionDependenciesDir:
@@ -267,7 +270,7 @@ For example, if you use token authentication, you need to configure the followin
 ```Yaml
 clientAuthenticationPlugin: org.apache.pulsar.client.impl.auth.AuthenticationToken
 clientAuthenticationParameters: file:///etc/pulsar/token/admin-token.txt
-configurationStoreServers: zookeeper-cluster:2181 # auth requires a connection to zookeeper
+configurationMetadataStoreUrl: zk:zookeeper-cluster:2181 # auth requires a connection to zookeeper
 authenticationProviders:
  - "org.apache.pulsar.broker.authentication.AuthenticationProviderToken"
 authorizationEnabled: true

@@ -36,6 +36,7 @@ import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import lombok.AllArgsConstructor;
 import lombok.Cleanup;
@@ -233,7 +234,7 @@ public class MetadataCacheTest extends BaseMetadataStoreTest {
         v.put("b", "2");
         objCache.create(key1, v).join();
 
-        assertEquals(objCache.getIfCached(key1), Optional.of(v));
+        assertEqualsAndRetry(() -> objCache.getIfCached(key1), Optional.of(v), Optional.empty());
         assertEquals(objCache.get(key1).join(), Optional.of(v));
 
         objCache.delete(key1).join();
@@ -264,17 +265,45 @@ public class MetadataCacheTest extends BaseMetadataStoreTest {
             assertEquals(e.getCause().getClass(), AlreadyExistsException.class);
         }
 
-        assertEquals(objCache.getIfCached(key1), Optional.of(value1));
+        assertEqualsAndRetry(() -> objCache.getIfCached(key1), Optional.of(value1), Optional.empty());
         assertEquals(objCache.get(key1).join(), Optional.of(value1));
 
         assertEquals(objCache.readModifyUpdateOrCreate(key1, __ -> value2).join(), value2);
         assertEquals(objCache.get(key1).join(), Optional.of(value2));
-        assertEquals(objCache.getIfCached(key1), Optional.of(value2));
+        assertEqualsAndRetry(() -> objCache.getIfCached(key1), Optional.of(value2), Optional.empty());
 
         objCache.delete(key1).join();
 
         assertEquals(objCache.getIfCached(key1), Optional.empty());
         assertEquals(objCache.get(key1).join(), Optional.empty());
+    }
+
+    @Test(dataProvider = "impl")
+    public void insertionWithInvalidation(String provider, Supplier<String> urlSupplier) throws Exception {
+        @Cleanup
+        MetadataStore store = MetadataStoreFactory.create(urlSupplier.get(), MetadataStoreConfig.builder().build());
+        MetadataCache<MyClass> objCache = store.getMetadataCache(MyClass.class);
+
+        String key1 = newKey();
+
+        assertEquals(objCache.getIfCached(key1), Optional.empty());
+        assertEquals(objCache.get(key1).join(), Optional.empty());
+
+        MyClass value1 = new MyClass("a", 1);
+        store.put(key1, ObjectMapperFactory.getThreadLocal().writeValueAsBytes(value1), Optional.of(-1L)).join();
+
+        Awaitility.await().untilAsserted(() -> {
+            assertEquals(objCache.getIfCached(key1), Optional.of(value1));
+            assertEquals(objCache.get(key1).join(), Optional.of(value1));
+        });
+
+        MyClass value2 = new MyClass("a", 2);
+        store.put(key1, ObjectMapperFactory.getThreadLocal().writeValueAsBytes(value2), Optional.of(0L)).join();
+
+        Awaitility.await().untilAsserted(() -> {
+            assertEquals(objCache.getIfCached(key1), Optional.of(value2));
+            assertEquals(objCache.get(key1).join(), Optional.of(value2));
+        });
     }
 
     @Test(dataProvider = "impl")
@@ -292,25 +321,28 @@ public class MetadataCacheTest extends BaseMetadataStoreTest {
         store.put(key1, ObjectMapperFactory.getThreadLocal().writeValueAsBytes(value1), Optional.of(-1L)).join();
 
         assertEquals(objCache.get(key1).join(), Optional.of(value1));
-        assertEquals(objCache.getIfCached(key1), Optional.of(value1));
+        assertEqualsAndRetry(() -> objCache.getIfCached(key1), Optional.of(value1), Optional.empty());
     }
 
     @Test(dataProvider = "impl")
-    public void insertionOutsideCacheWithGenericType(String provider, Supplier<String> urlSupplier) throws Exception {
+    public void updateOutsideCacheWithGenericType(String provider, Supplier<String> urlSupplier) throws Exception {
         @Cleanup
         MetadataStore store = MetadataStoreFactory.create(urlSupplier.get(), MetadataStoreConfig.builder().build());
         MetadataCache<Map<String, String>> objCache = store.getMetadataCache(new TypeReference<Map<String, String>>() {
         });
 
         String key1 = newKey();
+        objCache.get(key1);
 
         Map<String, String> v = new TreeMap<>();
         v.put("a", "1");
         v.put("b", "2");
         store.put(key1, ObjectMapperFactory.getThreadLocal().writeValueAsBytes(v), Optional.of(-1L)).join();
 
-        assertEquals(objCache.getIfCached(key1), Optional.empty());
-        assertEquals(objCache.get(key1).join(), Optional.of(v));
+        Awaitility.await().untilAsserted(() -> {
+            assertEquals(objCache.getIfCached(key1), Optional.of(v));
+            assertEquals(objCache.get(key1).join(), Optional.of(v));
+        });
     }
 
     @Test(dataProvider = "impl")
@@ -554,5 +586,36 @@ public class MetadataCacheTest extends BaseMetadataStoreTest {
         assertEquals(res.getValue().a, 1);
         assertEquals(res.getValue().b, 2);
         assertEquals(res.getValue().path, key1);
+    }
+
+    public static void assertEqualsAndRetry(Supplier<Object> actual,
+                                            Object expected,
+                                            Object expectedAndRetry) throws Exception {
+        assertEqualsAndRetry(actual, expected, expectedAndRetry, 5, 100);
+    }
+
+    public static void assertEqualsAndRetry(Supplier<Object> actual,
+                                            Object expected,
+                                            Object expectedAndRetry,
+                                            int retryCount,
+                                            long intSleepTimeInMillis) throws Exception {
+        assertTrue(retryStrategically((__) -> {
+            if (actual.get().equals(expectedAndRetry)) {
+                return false;
+            }
+            assertEquals(actual.get(), expected);
+            return true;
+        }, retryCount, intSleepTimeInMillis));
+    }
+
+    public static boolean retryStrategically(Predicate<Void> predicate, int retryCount, long intSleepTimeInMillis)
+            throws Exception {
+        for (int i = 0; i < retryCount; i++) {
+            if (predicate.test(null) || i == (retryCount - 1)) {
+                return true;
+            }
+            Thread.sleep(intSleepTimeInMillis + (intSleepTimeInMillis * i));
+        }
+        return false;
     }
 }

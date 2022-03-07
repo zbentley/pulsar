@@ -19,11 +19,9 @@
 package org.apache.pulsar.websocket;
 
 import static com.google.common.base.Preconditions.checkArgument;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Enums;
 import com.google.common.base.Splitter;
-
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import java.io.IOException;
@@ -36,9 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.concurrent.atomic.LongAdder;
-
 import javax.servlet.http.HttpServletRequest;
-
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.ConsumerBuilder;
@@ -107,7 +103,7 @@ public class ConsumerHandler extends AbstractWebSocketHandler {
         this.numMsgsDelivered = new LongAdder();
         this.numBytesDelivered = new LongAdder();
         this.numMsgsAcked = new LongAdder();
-        this.pullMode = Boolean.valueOf(queryParams.get("pullMode"));
+        this.pullMode = Boolean.parseBoolean(queryParams.get("pullMode"));
 
         try {
             // checkAuth() and getConsumerConfiguration() should be called after assigning a value to this.subscription
@@ -145,7 +141,8 @@ public class ConsumerHandler extends AbstractWebSocketHandler {
 
     private void receiveMessage() {
         if (log.isDebugEnabled()) {
-            log.debug("[{}:{}] [{}] [{}] Receive next message", request.getRemoteAddr(), request.getRemotePort(), topic, subscription);
+            log.debug("[{}:{}] [{}] [{}] Receive next message",
+                    request.getRemoteAddr(), request.getRemotePort(), topic, subscription);
         }
 
         consumer.receiveAsync().thenAccept(msg -> {
@@ -160,6 +157,7 @@ public class ConsumerHandler extends AbstractWebSocketHandler {
             dm.properties = msg.getProperties();
             dm.publishTime = DateFormatter.format(msg.getPublishTime());
             dm.redeliveryCount = msg.getRedeliveryCount();
+            dm.encryptionContext = msg.getEncryptionCtx().orElse(null);
             if (msg.getEventTime() != 0) {
                 dm.eventTime = DateFormatter.format(msg.getEventTime());
             }
@@ -456,7 +454,7 @@ public class ConsumerHandler extends AbstractWebSocketHandler {
             try {
                 builder.cryptoFailureAction(ConsumerCryptoFailureAction.valueOf(action));
             } catch (Exception e) {
-                log.warn("Failed to configure cryptoFailureAction {} , {}", action, e.getMessage());
+                log.warn("Failed to configure cryptoFailureAction {}, {}", action, e.getMessage());
             }
         }
 
@@ -483,8 +481,8 @@ public class ConsumerHandler extends AbstractWebSocketHandler {
 
         final boolean isV2Format = parts.get(2).equals("v2");
         final int domainIndex = isV2Format ? 4 : 3;
-        checkArgument(parts.get(domainIndex).equals("persistent") ||
-                parts.get(domainIndex).equals("non-persistent"));
+        checkArgument(parts.get(domainIndex).equals("persistent")
+                || parts.get(domainIndex).equals("non-persistent"));
         checkArgument(parts.get(8).length() > 0, "Empty subscription name");
 
         return Codec.decode(parts.get(8));

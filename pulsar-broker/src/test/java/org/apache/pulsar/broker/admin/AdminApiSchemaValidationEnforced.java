@@ -45,7 +45,7 @@ import org.testng.collections.Maps;
 import java.util.Map;
 
 @Slf4j
-@Test(groups = "broker")
+@Test(groups = "broker-admin")
 public class AdminApiSchemaValidationEnforced extends MockedPulsarServiceBaseTest {
 
     private static final Logger LOG = LoggerFactory.getLogger(AdminApiSchemaValidationEnforced.class);
@@ -64,6 +64,15 @@ public class AdminApiSchemaValidationEnforced extends MockedPulsarServiceBaseTes
     @Override
     public void cleanup() throws Exception {
         super.internalCleanup();
+    }
+
+    @Test
+    public void testGetSchemaValidationEnforcedApplied() throws Exception {
+        String namespace = "schema-validation-enforced/testApplied";
+        admin.namespaces().createNamespace(namespace);
+        this.conf.setSchemaValidationEnforced(true);
+        assertTrue(admin.namespaces().getSchemaValidationEnforced(namespace, true));
+        assertFalse(admin.namespaces().getSchemaValidationEnforced(namespace, false));
     }
 
     @Test

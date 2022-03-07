@@ -73,6 +73,7 @@ public class MetadataCacheImpl<T> implements MetadataCache<T>, Consumer<Notifica
 
         this.objCache = Caffeine.newBuilder()
                 .refreshAfterWrite(CACHE_REFRESH_TIME_MILLIS, TimeUnit.MILLISECONDS)
+                .expireAfterWrite(CACHE_REFRESH_TIME_MILLIS * 2, TimeUnit.MILLISECONDS)
                 .buildAsync(new AsyncCacheLoader<String, Optional<CacheGetResult<T>>>() {
                     @Override
                     public CompletableFuture<Optional<CacheGetResult<T>>> asyncLoad(String key, Executor executor) {
@@ -168,8 +169,7 @@ public class MetadataCacheImpl<T> implements MetadataCache<T>, Consumer<Notifica
                     }
 
                     return store.put(path, newValue, Optional.of(expectedVersion)).thenAccept(__ -> {
-                        objCache.synchronous().invalidate(path);
-                        objCache.synchronous().refresh(path);
+                        refresh(path);
                     }).thenApply(__ -> newValueObj);
                 }), path);
     }
@@ -198,8 +198,7 @@ public class MetadataCacheImpl<T> implements MetadataCache<T>, Consumer<Notifica
                     }
 
                     return store.put(path, newValue, Optional.of(expectedVersion)).thenAccept(__ -> {
-                        objCache.synchronous().invalidate(path);
-                        objCache.synchronous().refresh(path);
+                        refresh(path);
                     }).thenApply(__ -> newValueObj);
                 }), path);
     }
@@ -220,7 +219,7 @@ public class MetadataCacheImpl<T> implements MetadataCache<T>, Consumer<Notifica
                     // In addition to caching the value, we need to add a watch on the path,
                     // so when/if it changes on any other node, we are notified and we can
                     // update the cache
-                    objCache.get(path).whenComplete( (stat2, ex) -> {
+                    objCache.get(path).whenComplete((stat2, ex) -> {
                         if (ex == null) {
                             future.complete(null);
                         } else {
@@ -261,6 +260,12 @@ public class MetadataCacheImpl<T> implements MetadataCache<T>, Consumer<Notifica
         objCache.synchronous().invalidate(path);
     }
 
+    @Override
+    public void refresh(String path) {
+        // Refresh object of path if only it is cached before.
+        objCache.asMap().computeIfPresent(path, (oldKey, oldValue) -> readValueFromStore(path));
+    }
+
     @VisibleForTesting
     public void invalidateAll() {
         objCache.synchronous().invalidateAll();
@@ -272,12 +277,7 @@ public class MetadataCacheImpl<T> implements MetadataCache<T>, Consumer<Notifica
         switch (t.getType()) {
         case Created:
         case Modified:
-            if (objCache.synchronous().getIfPresent(path) != null) {
-                // Trigger background refresh of the cached item, but before make sure
-                // to invalidate the entry so that we won't serve a stale cached version
-                objCache.synchronous().invalidate(path);
-                objCache.synchronous().refresh(path);
-            }
+            refresh(path);
             break;
 
         case Deleted:

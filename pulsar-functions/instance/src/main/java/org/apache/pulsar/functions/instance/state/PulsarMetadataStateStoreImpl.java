@@ -21,11 +21,9 @@ package org.apache.pulsar.functions.instance.state;
 import java.nio.ByteBuffer;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import org.apache.pulsar.common.util.FutureUtil;
 import org.apache.pulsar.functions.api.StateStoreContext;
 import org.apache.pulsar.metadata.api.MetadataCache;
 import org.apache.pulsar.metadata.api.MetadataStore;
-import org.apache.pulsar.metadata.api.MetadataStoreException;
 
 public class PulsarMetadataStateStoreImpl implements DefaultStateStore {
 
@@ -115,7 +113,7 @@ public class PulsarMetadataStateStoreImpl implements DefaultStateStore {
 
     @Override
     public void incrCounter(String key, long amount) {
-        incrCounterAsync(key, amount);
+        incrCounterAsync(key, amount).join();
     }
 
     @Override

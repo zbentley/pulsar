@@ -123,7 +123,7 @@ public class LoadBalancerTest {
             config.setWebServicePort(Optional.of(0));
             config.setBrokerServicePortTls(Optional.of(0));
             config.setWebServicePortTls(Optional.of(0));
-            config.setZookeeperServers("127.0.0.1" + ":" + bkEnsemble.getZookeeperPort());
+            config.setMetadataStoreUrl("zk:127.0.0.1" + ":" + bkEnsemble.getZookeeperPort());
             config.setBrokerShutdownTimeoutMs(0L);
             config.setBrokerServicePort(Optional.of(0));
             config.setLoadManagerClassName(SimpleLoadManagerImpl.class.getName());
@@ -661,6 +661,11 @@ public class LoadBalancerTest {
         verify(namespaceAdmin, never()).splitNamespaceBundle("pulsar/use/primary-ns-09", "0x00000000_0x80000000",
                 isAutoUnooadSplitBundleEnabled, null);
         verify(namespaceAdmin, never()).splitNamespaceBundle("pulsar/use/primary-ns-10", "0x00000000_0x02000000",
+                isAutoUnooadSplitBundleEnabled, null);
+        // disable max session
+        bundleStats.put("pulsar/use/primary-ns-03/0x00000000_0x80000000",
+                newBundleStats(2, -1, 0, 0, 0, 0, 0));
+        verify(namespaceAdmin, times(0)).splitNamespaceBundle("pulsar/use/primary-ns-12", "0x00000000_0x80000000",
                 isAutoUnooadSplitBundleEnabled, null);
     }
 

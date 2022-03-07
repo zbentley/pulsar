@@ -22,12 +22,14 @@ import static org.apache.pulsar.common.events.EventsTopicNames.checkTopicIsEvent
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
@@ -47,6 +49,7 @@ import org.apache.bookkeeper.mledger.Position;
 import org.apache.bookkeeper.mledger.impl.ManagedCursorImpl;
 import org.apache.bookkeeper.mledger.impl.ManagedLedgerImpl;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.pulsar.broker.ServiceConfiguration;
 import org.apache.pulsar.broker.intercept.BrokerInterceptor;
@@ -68,8 +71,6 @@ import org.apache.pulsar.client.api.transaction.TxnID;
 import org.apache.pulsar.common.api.proto.CommandAck.AckType;
 import org.apache.pulsar.common.api.proto.CommandSubscribe.SubType;
 import org.apache.pulsar.common.api.proto.KeySharedMeta;
-import org.apache.pulsar.common.api.proto.KeySharedMode;
-import org.apache.pulsar.common.api.proto.MessageMetadata;
 import org.apache.pulsar.common.api.proto.ReplicatedSubscriptionsSnapshot;
 import org.apache.pulsar.common.api.proto.TxnAction;
 import org.apache.pulsar.common.naming.TopicName;
@@ -77,8 +78,6 @@ import org.apache.pulsar.common.policies.data.TransactionInPendingAckStats;
 import org.apache.pulsar.common.policies.data.TransactionPendingAckStats;
 import org.apache.pulsar.common.policies.data.stats.ConsumerStatsImpl;
 import org.apache.pulsar.common.policies.data.stats.SubscriptionStatsImpl;
-import org.apache.pulsar.common.protocol.Commands;
-import org.apache.pulsar.common.protocol.Markers;
 import org.apache.pulsar.common.util.FutureUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,24 +113,14 @@ public class PersistentSubscription implements Subscription {
     private static final Map<String, Long> NON_REPLICATED_SUBSCRIPTION_CURSOR_PROPERTIES = Collections.emptyMap();
 
     private volatile ReplicatedSubscriptionSnapshotCache replicatedSubscriptionSnapshotCache;
-    private volatile Position lastMarkDeleteForTransactionMarker;
     private final PendingAckHandle pendingAckHandle;
+    private Map<String, String> subscriptionProperties;
 
     private final LongAdder bytesOutFromRemovedConsumers = new LongAdder();
     private final LongAdder msgOutFromRemovedConsumer = new LongAdder();
 
-    private DeleteTransactionMarkerState deleteTransactionMarkerState = DeleteTransactionMarkerState.None;
-
-    private final Object waitObject = new Object();
-
     static {
         REPLICATED_SUBSCRIPTION_CURSOR_PROPERTIES.put(REPLICATED_SUBSCRIPTION_PROPERTY, 1L);
-    }
-
-    public enum DeleteTransactionMarkerState {
-        Process,
-        Wait,
-        None
     }
 
     static Map<String, Long> getBaseCursorProperties(boolean isReplicated) {
@@ -143,7 +132,12 @@ public class PersistentSubscription implements Subscription {
     }
 
     public PersistentSubscription(PersistentTopic topic, String subscriptionName, ManagedCursor cursor,
-            boolean replicated) {
+                                                         boolean replicated) {
+        this(topic, subscriptionName, cursor, replicated, Collections.emptyMap());
+    }
+
+    public PersistentSubscription(PersistentTopic topic, String subscriptionName, ManagedCursor cursor,
+            boolean replicated, Map<String, String> subscriptionProperties) {
         this.topic = topic;
         this.cursor = cursor;
         this.topicName = topic.getName();
@@ -151,6 +145,8 @@ public class PersistentSubscription implements Subscription {
         this.fullName = MoreObjects.toStringHelper(this).add("topic", topicName).add("name", subName).toString();
         this.expiryMonitor = new PersistentMessageExpiryMonitor(topicName, subscriptionName, cursor, this);
         this.setReplicated(replicated);
+        this.subscriptionProperties = MapUtils.isEmpty(subscriptionProperties)
+                ? new HashMap<>() : Collections.unmodifiableMap(subscriptionProperties);
         if (topic.getBrokerService().getPulsar().getConfig().isTransactionCoordinatorEnabled()
                 && !checkTopicIsEventsNames(TopicName.get(topicName))) {
             this.pendingAckHandle = new PendingAckHandleImpl(this);
@@ -260,10 +256,9 @@ public class PersistentSubscription implements Subscription {
                             break;
                         case Key_Shared:
                             KeySharedMeta ksm = consumer.getKeySharedMeta();
-                            KeySharedMode keySharedMode = ksm.getKeySharedMode();
                             if (dispatcher == null || dispatcher.getType() != SubType.Key_Shared
-                                    || ((PersistentStickyKeyDispatcherMultipleConsumers) dispatcher).getKeySharedMode()
-                                    != keySharedMode) {
+                                    || !((PersistentStickyKeyDispatcherMultipleConsumers) dispatcher)
+                                            .hasSameKeySharedPolicy(ksm)) {
                                 previousDispatcher = dispatcher;
                                 dispatcher = new PersistentStickyKeyDispatcherMultipleConsumers(topic, cursor, this,
                                         topic.getBrokerService().getPulsar().getConfiguration(), ksm);
@@ -313,6 +308,7 @@ public class PersistentSubscription implements Subscription {
 
         if (dispatcher != null && dispatcher.getConsumers().isEmpty()) {
             deactivateCursor();
+            topic.getManagedLedger().removeWaitingCursor(cursor);
 
             if (!cursor.isDurable()) {
                 // If cursor is not durable, we need to clean up the subscription as well
@@ -419,8 +415,6 @@ public class PersistentSubscription implements Subscription {
             }
         }
 
-        deleteTransactionMarker(properties);
-
         if (topic.getManagedLedger().isTerminated() && cursor.getNumberOfEntriesInBacklog(false) == 0) {
             // Notify all consumer that the end of topic was reached
             if (dispatcher != null) {
@@ -429,81 +423,14 @@ public class PersistentSubscription implements Subscription {
         }
     }
 
-    private void deleteTransactionMarker(Map<String, Long> properties) {
-
-        if (topic.getBrokerService().getPulsar().getConfig().isTransactionCoordinatorEnabled()) {
-            PositionImpl currentMarkDeletePosition = (PositionImpl) cursor.getMarkDeletedPosition();
-            if ((lastMarkDeleteForTransactionMarker == null
-                    || ((PositionImpl) lastMarkDeleteForTransactionMarker)
-                    .compareTo(currentMarkDeletePosition) < 0)) {
-                if (currentMarkDeletePosition != null) {
-                    ManagedLedgerImpl managedLedger = ((ManagedLedgerImpl) cursor.getManagedLedger());
-                    PositionImpl nextPosition = managedLedger.getNextValidPosition(currentMarkDeletePosition);
-                    if (nextPosition != null
-                            && nextPosition.compareTo((PositionImpl) managedLedger.getLastConfirmedEntry()) <= 0) {
-                        synchronized (waitObject) {
-                            if (deleteTransactionMarkerState == DeleteTransactionMarkerState.None) {
-                                deleteTransactionMarkerState = DeleteTransactionMarkerState.Process;
-                                managedLedger.asyncReadEntry(nextPosition, new ReadEntryCallback() {
-                                    @Override
-                                    public void readEntryComplete(Entry entry, Object ctx) {
-                                        try {
-                                            MessageMetadata messageMetadata =
-                                                    Commands.parseMessageMetadata(entry.getDataBuffer());
-                                            if (Markers.isTxnCommitMarker(messageMetadata)
-                                                    || Markers.isTxnAbortMarker(messageMetadata)) {
-                                                synchronized (waitObject) {
-                                                    deleteTransactionMarkerState = DeleteTransactionMarkerState.None;
-                                                }
-                                                lastMarkDeleteForTransactionMarker = currentMarkDeletePosition;
-                                                acknowledgeMessage(Collections.singletonList(nextPosition),
-                                                        AckType.Individual, properties);
-                                            } else {
-                                                synchronized (waitObject) {
-                                                    if (deleteTransactionMarkerState
-                                                            == DeleteTransactionMarkerState.Wait) {
-                                                        deleteTransactionMarkerState =
-                                                                DeleteTransactionMarkerState.None;
-                                                        deleteTransactionMarker(properties);
-                                                    } else {
-                                                        deleteTransactionMarkerState =
-                                                                DeleteTransactionMarkerState.None;
-                                                    }
-                                                }
-                                            }
-                                        } finally {
-                                            entry.release();
-                                        }
-                                    }
-
-                                    @Override
-                                    public void readEntryFailed(ManagedLedgerException exception, Object ctx) {
-                                        synchronized (waitObject) {
-                                            deleteTransactionMarkerState =
-                                                    DeleteTransactionMarkerState.None;
-                                        }
-                                        log.error("Fail to read transaction marker! Position : {}",
-                                                currentMarkDeletePosition, exception);
-                                    }
-                                }, null);
-                            } else if (deleteTransactionMarkerState == DeleteTransactionMarkerState.Process) {
-                                deleteTransactionMarkerState = DeleteTransactionMarkerState.Wait;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     public CompletableFuture<Void> transactionIndividualAcknowledge(
             TxnID txnId,
             List<MutablePair<PositionImpl, Integer>> positions) {
-        return pendingAckHandle.individualAcknowledgeMessage(txnId, positions, false);
+        return pendingAckHandle.individualAcknowledgeMessage(txnId, positions);
     }
 
     public CompletableFuture<Void> transactionCumulativeAcknowledge(TxnID txnId, List<PositionImpl> positions) {
-        return pendingAckHandle.cumulativeAcknowledgeMessage(txnId, positions, false);
+        return pendingAckHandle.cumulativeAcknowledgeMessage(txnId, positions);
     }
 
     private final MarkDeleteCallback markDeleteCallback = new MarkDeleteCallback() {
@@ -741,7 +668,15 @@ public class PersistentSubscription implements Subscription {
                     topicName, subName);
 
             try {
-                cursor.asyncResetCursor(finalPosition, new AsyncCallbacks.ResetCursorCallback() {
+                boolean forceReset = false;
+                if (topic.getCompactedTopic() != null && topic.getCompactedTopic().getCompactionHorizon().isPresent()) {
+                    PositionImpl horizon = (PositionImpl) topic.getCompactedTopic().getCompactionHorizon().get();
+                    PositionImpl resetTo = (PositionImpl) finalPosition;
+                    if (horizon.compareTo(resetTo) >= 0) {
+                        forceReset = true;
+                    }
+                }
+                cursor.asyncResetCursor(finalPosition, forceReset, new AsyncCallbacks.ResetCursorCallback() {
                     @Override
                     public void resetComplete(Object ctx) {
                         if (log.isDebugEnabled()) {
@@ -1012,7 +947,8 @@ public class PersistentSubscription implements Subscription {
         return cursor.getEstimatedSizeSinceMarkDeletePosition();
     }
 
-    public SubscriptionStatsImpl getStats(Boolean getPreciseBacklog, boolean subscriptionBacklogSize) {
+    public SubscriptionStatsImpl getStats(Boolean getPreciseBacklog, boolean subscriptionBacklogSize,
+                                          boolean getEarliestTimeInBacklog) {
         SubscriptionStatsImpl subStats = new SubscriptionStatsImpl();
         subStats.lastExpireTimestamp = lastExpireTimestamp;
         subStats.lastConsumedFlowTimestamp = lastConsumedFlowTimestamp;
@@ -1065,10 +1001,22 @@ public class PersistentSubscription implements Subscription {
             subStats.backlogSize = ((ManagedLedgerImpl) topic.getManagedLedger())
                     .getEstimatedBacklogSize((PositionImpl) cursor.getMarkDeletedPosition());
         }
+        if (getEarliestTimeInBacklog && subStats.msgBacklog > 0) {
+            ManagedLedgerImpl managedLedger = ((ManagedLedgerImpl) cursor.getManagedLedger());
+            PositionImpl markDeletedPosition = (PositionImpl) cursor.getMarkDeletedPosition();
+            long result = 0;
+            try {
+                result = managedLedger.getEarliestMessagePublishTimeOfPos(markDeletedPosition).get();
+            } catch (InterruptedException | ExecutionException e) {
+                result = -1;
+            }
+            subStats.earliestMsgPublishTimeInBacklog = result;
+        }
         subStats.msgBacklogNoDelayed = subStats.msgBacklog - subStats.msgDelayed;
         subStats.msgRateExpired = expiryMonitor.getMessageExpiryRate();
         subStats.totalMsgExpired = expiryMonitor.getTotalMessageExpired();
         subStats.isReplicated = isReplicated();
+        subStats.subscriptionProperties = subscriptionProperties;
         subStats.isDurable = cursor.isDurable();
         if (getType() == SubType.Key_Shared && dispatcher instanceof PersistentStickyKeyDispatcherMultipleConsumers) {
             PersistentStickyKeyDispatcherMultipleConsumers keySharedDispatcher =
@@ -1092,10 +1040,10 @@ public class PersistentSubscription implements Subscription {
     }
 
     @Override
-    public void redeliverUnacknowledgedMessages(Consumer consumer) {
+    public void redeliverUnacknowledgedMessages(Consumer consumer, long consumerEpoch) {
         Dispatcher dispatcher = getDispatcher();
         if (dispatcher != null) {
-            dispatcher.redeliverUnacknowledgedMessages(consumer);
+            dispatcher.redeliverUnacknowledgedMessages(consumer, consumerEpoch);
         }
     }
 
@@ -1141,13 +1089,16 @@ public class PersistentSubscription implements Subscription {
         }
     }
 
+    public Map<String, String> getSubscriptionProperties() {
+        return subscriptionProperties;
+    }
+
     /**
      * Return a merged map that contains the cursor properties specified by used
      * (eg. when using compaction subscription) and the subscription properties.
      */
     protected Map<String, Long> mergeCursorProperties(Map<String, Long> userProperties) {
-        Map<String, Long> baseProperties = isReplicated() ? REPLICATED_SUBSCRIPTION_CURSOR_PROPERTIES
-                : NON_REPLICATED_SUBSCRIPTION_CURSOR_PROPERTIES;
+        Map<String, Long> baseProperties = getBaseCursorProperties(isReplicated());
 
         if (userProperties.isEmpty()) {
             // Use only the static instance in the common case
@@ -1173,14 +1124,14 @@ public class PersistentSubscription implements Subscription {
     public CompletableFuture<Void> endTxn(long txnidMostBits, long txnidLeastBits, int txnAction, long lowWaterMark) {
         TxnID txnID = new TxnID(txnidMostBits, txnidLeastBits);
         if (TxnAction.COMMIT.getValue() == txnAction) {
-            return pendingAckHandle.commitTxn(txnID, Collections.emptyMap(), lowWaterMark, false);
+            return pendingAckHandle.commitTxn(txnID, Collections.emptyMap(), lowWaterMark);
         } else if (TxnAction.ABORT.getValue() == txnAction) {
             Consumer redeliverConsumer = null;
             if (getDispatcher() instanceof PersistentDispatcherSingleActiveConsumer) {
                 redeliverConsumer = ((PersistentDispatcherSingleActiveConsumer)
                         getDispatcher()).getActiveConsumer();
             }
-            return pendingAckHandle.abortTxn(txnID, redeliverConsumer, lowWaterMark, false);
+            return pendingAckHandle.abortTxn(txnID, redeliverConsumer, lowWaterMark);
         } else {
             return FutureUtil.failedFuture(new NotAllowedException("Unsupported txnAction " + txnAction));
         }
@@ -1217,6 +1168,10 @@ public class PersistentSubscription implements Subscription {
         } else {
             return FutureUtil.failedFuture(new NotAllowedException("Pending ack handle don't use managedLedger!"));
         }
+    }
+
+    public boolean checkIfPendingAckStoreInit() {
+        return this.pendingAckHandle.checkIfPendingAckStoreInit();
     }
 
     private static final Logger log = LoggerFactory.getLogger(PersistentSubscription.class);

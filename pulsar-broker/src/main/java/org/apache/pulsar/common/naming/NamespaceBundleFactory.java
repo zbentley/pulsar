@@ -44,7 +44,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.pulsar.broker.BundleData;
 import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.broker.loadbalance.LoadManager;
+import org.apache.pulsar.broker.loadbalance.impl.ModularLoadManagerWrapper;
 import org.apache.pulsar.broker.resources.LocalPoliciesResources;
 import org.apache.pulsar.broker.resources.PulsarResources;
 import org.apache.pulsar.client.impl.Backoff;
@@ -197,9 +200,9 @@ public class NamespaceBundleFactory {
         return bundlesCache.get(nsname);
     }
 
-    public NamespaceBundle getBundlesWithHighestTopics(NamespaceName nsname) {
+    public NamespaceBundle getBundleWithHighestTopics(NamespaceName nsname) {
         try {
-            return getBundlesWithHighestTopicsAsync(nsname).get(PulsarResources.DEFAULT_OPERATION_TIMEOUT_SEC,
+            return getBundleWithHighestTopicsAsync(nsname).get(PulsarResources.DEFAULT_OPERATION_TIMEOUT_SEC,
                     TimeUnit.SECONDS);
         } catch (Exception e) {
             LOG.info("failed to derive bundle for {}", nsname, e);
@@ -207,7 +210,7 @@ public class NamespaceBundleFactory {
         }
     }
 
-    public CompletableFuture<NamespaceBundle> getBundlesWithHighestTopicsAsync(NamespaceName nsname) {
+    public CompletableFuture<NamespaceBundle> getBundleWithHighestTopicsAsync(NamespaceName nsname) {
         return pulsar.getPulsarResources().getTopicResources().listPersistentTopicsAsync(nsname).thenCompose(topics -> {
             return bundlesCache.get(nsname).handle((bundles, e) -> {
                 Map<String, Integer> countMap = new HashMap<>();
@@ -215,7 +218,7 @@ public class NamespaceBundleFactory {
                 int maxCount = 0;
                 for (String topic : topics) {
                     NamespaceBundle bundle = bundles.findBundle(TopicName.get(topic));
-                    String bundleRange = bundles.findBundle(TopicName.get(topic)).getBundleRange();
+                    String bundleRange = bundle.getBundleRange();
                     int count = countMap.getOrDefault(bundleRange, 0) + 1;
                     countMap.put(bundleRange, count);
                     if (count > maxCount) {
@@ -226,6 +229,31 @@ public class NamespaceBundleFactory {
                 return resultBundle;
             });
         });
+    }
+
+    public NamespaceBundle getBundle(TopicName topic) {
+        NamespaceBundles bundles = bundlesCache.synchronous().get(topic.getNamespaceObject());
+        return bundles != null ? bundles.findBundle(topic) : null;
+    }
+
+    public NamespaceBundle getBundleWithHighestThroughput(NamespaceName nsName) {
+        LoadManager loadManager = pulsar.getLoadManager().get();
+        if (loadManager instanceof ModularLoadManagerWrapper) {
+            NamespaceBundles bundles = getBundles(nsName);
+            double maxMsgThroughput = -1;
+            NamespaceBundle bundleWithHighestThroughput = null;
+            for (NamespaceBundle bundle : bundles.getBundles()) {
+                BundleData bundleData = ((ModularLoadManagerWrapper) loadManager).getLoadManager()
+                        .getBundleDataOrDefault(bundle.toString());
+                if (bundleData.getTopics() > 0
+                        && bundleData.getLongTermData().totalMsgThroughput() > maxMsgThroughput) {
+                    maxMsgThroughput = bundleData.getLongTermData().totalMsgThroughput();
+                    bundleWithHighestThroughput = bundle;
+                }
+            }
+            return bundleWithHighestThroughput;
+        }
+        return getBundleWithHighestTopics(nsName);
     }
 
     public NamespaceBundles getBundles(NamespaceName nsname) {

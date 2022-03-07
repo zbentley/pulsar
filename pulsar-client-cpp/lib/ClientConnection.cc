@@ -37,6 +37,7 @@
 #include "ProducerImpl.h"
 #include "ConsumerImpl.h"
 #include "checksum/ChecksumProvider.h"
+#include "MessageIdUtil.h"
 
 DECLARE_LOG_OBJECT()
 
@@ -162,11 +163,11 @@ ClientConnection::ClientConnection(const std::string& logicalAddress, const std:
       resolver_(executor_->createTcpResolver()),
       socket_(executor_->createSocket()),
 #if BOOST_VERSION >= 107000
-      strand_(boost::asio::make_strand(executor_->io_service_->get_executor())),
+      strand_(boost::asio::make_strand(executor_->getIOService().get_executor())),
 #elif BOOST_VERSION >= 106600
-      strand_(executor_->io_service_->get_executor()),
+      strand_(executor_->getIOService().get_executor()),
 #else
-      strand_(*(executor_->io_service_)),
+      strand_(executor_->getIOService()),
 #endif
       logicalAddress_(logicalAddress),
       physicalAddress_(physicalAddress),
@@ -183,7 +184,7 @@ ClientConnection::ClientConnection(const std::string& logicalAddress, const std:
 #if BOOST_VERSION >= 105400
         boost::asio::ssl::context ctx(boost::asio::ssl::context::tlsv12_client);
 #else
-        boost::asio::ssl::context ctx(*executor_->io_service_, boost::asio::ssl::context::tlsv1_client);
+        boost::asio::ssl::context ctx(executor_->getIOService(), boost::asio::ssl::context::tlsv1_client);
 #endif
         Url serviceUrl;
         Url::parse(physicalAddress, serviceUrl);
@@ -240,7 +241,7 @@ ClientConnection::ClientConnection(const std::string& logicalAddress, const std:
             }
         }
 
-        tlsSocket_ = executor_->createTlsSocket(socket_, ctx);
+        tlsSocket_ = ExecutorService::createTlsSocket(socket_, ctx);
 
         LOG_DEBUG("TLS SNI Host: " << serviceUrl.host());
         if (!SSL_set_tlsext_host_name(tlsSocket_->native_handle(), serviceUrl.host().c_str())) {
@@ -532,18 +533,25 @@ void ClientConnection::handleResolve(const boost::system::error_code& err,
         return;
     }
 
-    auto self = shared_from_this();
-    connectTimeoutTask_->setCallback([this, self](const PeriodicTask::ErrorCode& ec) {
-        if (state_ != Ready) {
-            LOG_ERROR(cnxString_ << "Connection was not established in " << connectTimeoutTask_->getPeriodMs()
-                                 << " ms, close the socket");
+    auto self = ClientConnectionWeakPtr(shared_from_this());
+
+    connectTimeoutTask_->setCallback([self](const PeriodicTask::ErrorCode& ec) {
+        ClientConnectionPtr ptr = self.lock();
+        if (!ptr) {
+            // Connection was already destroyed
+            return;
+        }
+
+        if (ptr->state_ != Ready) {
+            LOG_ERROR(ptr->cnxString_ << "Connection was not established in "
+                                      << ptr->connectTimeoutTask_->getPeriodMs() << " ms, close the socket");
             PeriodicTask::ErrorCode err;
-            socket_->close(err);
+            ptr->socket_->close(err);
             if (err) {
-                LOG_WARN(cnxString_ << "Failed to close socket: " << err.message());
+                LOG_WARN(ptr->cnxString_ << "Failed to close socket: " << err.message());
             }
         }
-        connectTimeoutTask_->stop();
+        ptr->connectTimeoutTask_->stop();
     });
 
     LOG_DEBUG(cnxString_ << "Connecting to " << endpointIterator->endpoint() << "...");
@@ -577,9 +585,9 @@ void ClientConnection::handleRead(const boost::system::error_code& err, size_t b
     if (err || bytesTransferred == 0) {
         if (err) {
             if (err == boost::asio::error::operation_aborted) {
-                LOG_DEBUG(cnxString_ << "Read failed: " << err.message());
+                LOG_DEBUG(cnxString_ << "Read operation was canceled: " << err.message());
             } else {
-                LOG_ERROR(cnxString_ << "Read operation was cancelled");
+                LOG_ERROR(cnxString_ << "Read operation failed: " << err.message());
             }
         }  // else: bytesTransferred == 0, which means server has closed the connection
         close();
@@ -1065,7 +1073,7 @@ void ClientConnection::handleIncomingCommand() {
                         PendingGetLastMessageIdRequestsMap::iterator it =
                             pendingGetLastMessageIdRequests_.find(error.request_id());
                         if (it != pendingGetLastMessageIdRequests_.end()) {
-                            Promise<Result, MessageId> getLastMessageIdPromise = it->second;
+                            auto getLastMessageIdPromise = it->second;
                             pendingGetLastMessageIdRequests_.erase(it);
                             lock.unlock();
 
@@ -1184,15 +1192,18 @@ void ClientConnection::handleIncomingCommand() {
                         pendingGetLastMessageIdRequests_.find(getLastMessageIdResponse.request_id());
 
                     if (it != pendingGetLastMessageIdRequests_.end()) {
-                        Promise<Result, MessageId> getLastMessageIdPromise = it->second;
+                        auto getLastMessageIdPromise = it->second;
                         pendingGetLastMessageIdRequests_.erase(it);
                         lock.unlock();
 
-                        MessageIdData messageIdData = getLastMessageIdResponse.last_message_id();
-                        MessageId messageId = MessageId(messageIdData.partition(), messageIdData.ledgerid(),
-                                                        messageIdData.entryid(), messageIdData.batch_index());
-
-                        getLastMessageIdPromise.setValue(messageId);
+                        if (getLastMessageIdResponse.has_consumer_mark_delete_position()) {
+                            getLastMessageIdPromise.setValue(
+                                {toMessageId(getLastMessageIdResponse.last_message_id()),
+                                 toMessageId(getLastMessageIdResponse.consumer_mark_delete_position())});
+                        } else {
+                            getLastMessageIdPromise.setValue(
+                                {toMessageId(getLastMessageIdResponse.last_message_id())});
+                        }
                     } else {
                         lock.unlock();
                         LOG_WARN(
@@ -1359,8 +1370,9 @@ void ClientConnection::sendMessage(const OpSendMsg& opSend) {
 }
 
 void ClientConnection::sendMessageInternal(const OpSendMsg& opSend) {
-    PairSharedBuffer buffer = Commands::newSend(outgoingBuffer_, outgoingCmd_, opSend.producerId_,
-                                                opSend.sequenceId_, getChecksumType(), opSend.msg_);
+    PairSharedBuffer buffer =
+        Commands::newSend(outgoingBuffer_, outgoingCmd_, opSend.producerId_, opSend.sequenceId_,
+                          getChecksumType(), opSend.metadata_, opSend.payload_);
 
     asyncWrite(buffer, customAllocWriteHandler(std::bind(&ClientConnection::handleSendPair,
                                                          shared_from_this(), std::placeholders::_1)));
@@ -1401,8 +1413,9 @@ void ClientConnection::sendPendingCommands() {
             assert(any.type() == typeid(OpSendMsg));
 
             const OpSendMsg& op = boost::any_cast<const OpSendMsg&>(any);
-            PairSharedBuffer buffer = Commands::newSend(outgoingBuffer_, outgoingCmd_, op.producerId_,
-                                                        op.sequenceId_, getChecksumType(), op.msg_);
+            PairSharedBuffer buffer =
+                Commands::newSend(outgoingBuffer_, outgoingCmd_, op.producerId_, op.sequenceId_,
+                                  getChecksumType(), op.metadata_, op.payload_);
 
             asyncWrite(buffer, customAllocWriteHandler(std::bind(&ClientConnection::handleSendPair,
                                                                  shared_from_this(), std::placeholders::_1)));
@@ -1601,9 +1614,10 @@ Commands::ChecksumType ClientConnection::getChecksumType() const {
     return getServerProtocolVersion() >= proto::v6 ? Commands::Crc32c : Commands::None;
 }
 
-Future<Result, MessageId> ClientConnection::newGetLastMessageId(uint64_t consumerId, uint64_t requestId) {
+Future<Result, GetLastMessageIdResponse> ClientConnection::newGetLastMessageId(uint64_t consumerId,
+                                                                               uint64_t requestId) {
     Lock lock(mutex_);
-    Promise<Result, MessageId> promise;
+    Promise<Result, GetLastMessageIdResponse> promise;
     if (isClosed()) {
         lock.unlock();
         LOG_ERROR(cnxString_ << " Client is not connected to the broker");
@@ -1613,7 +1627,12 @@ Future<Result, MessageId> ClientConnection::newGetLastMessageId(uint64_t consume
 
     pendingGetLastMessageIdRequests_.insert(std::make_pair(requestId, promise));
     lock.unlock();
-    sendRequestWithId(Commands::newGetLastMessageId(consumerId, requestId), requestId);
+    sendRequestWithId(Commands::newGetLastMessageId(consumerId, requestId), requestId)
+        .addListener([promise](Result result, const ResponseData& data) {
+            if (result != ResultOk) {
+                promise.setFailed(result);
+            }
+        });
     return promise.getFuture();
 }
 
