@@ -213,7 +213,7 @@ def dockerfile_lines():
         # The debian-distributed zlib packages aren't built with -fPIC, so install from source. This installation
         # overwrites the dpkg-installed zlib.
         MakefileDependency(
-            version='1.2.11',
+            version='1.2.12',
             url='https://zlib.net/zlib-{version}.tar.gz',
             name='zlib',
         ),
@@ -312,6 +312,7 @@ def dockerfile_lines():
         ),
         ENV('CXXFLAGS', ''),
         ENV('CFLAGS', ''),
+        ENV('USE_FULL_POM_NAME', 'True'),
         RUN(
             'find . -name CMakeCache.txt | xargs -r rm -rf',
             'find . -name CMakeFiles.txt | xargs -r rm -rf',
@@ -329,7 +330,7 @@ def dockerfile_lines():
             'cd /',
             'python -c "import pulsar"',
             # Make sure it works, and works in the presence of grpcio-tools.
-            'python -c "import logging; from grpc_tools.protoc import main as protoc; import pulsar;git "',
+            'python -c "import logging; from grpc_tools.protoc import main as protoc; import pulsar;"',
         ),
     ))
     return template
