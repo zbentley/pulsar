@@ -17,6 +17,4 @@ docker build -t zbuild -f $ROOT_DIR/pulsar-client-cpp/docker/zbuild/Dockerfile $
 docker rm -f zbuild
 docker create --rm -ti --name zbuild zbuild bash
 rm -rf $ROOT_DIR/pulsar-client-cpp/dist/wheelhouse
-docker cp zbuild:/pulsar/build/pulsar-client-cpp/python/wheelhouse/ $ROOT_DIR/pulsar-client-cpp/dist
-mv dist/wheelhouse/*.whl dist/
-rm -rf dist/wheelhouse
+docker cp zbuild:/pulsar/build/pulsar-client-cpp/python/wheelhouse/. $ROOT_DIR/pulsar-client-cpp/dist
