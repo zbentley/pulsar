@@ -3,6 +3,9 @@ from abc import ABC, abstractmethod
 from typing import List, Iterable
 
 BASE_IMAGE_NAME = 'pulsar_build_common'
+# TODO make these configurable/matrix-based
+# PLATFORM = "linux/arm64"
+PLATFORM = "linux/amd64"
 
 
 class DockerInstruction(ABC):
@@ -111,6 +114,10 @@ class MakefileDependency(PulsarDependencyDockerInstall):
 
 
 class PulsarPythonDependency(PulsarDependencyDockerInstall):
+    VERSION = "3.8.13"  # TODO make configurable
+    BOOST_COMPONENT = f'python{int(VERSION.split(".")[0])}{int(VERSION.split(".")[1])}'
+    INSTALL_FOLDER = f"/usr/local/{BOOST_COMPONENT}"
+
     def __init__(self, version):
         super(PulsarPythonDependency, self).__init__('python', version, 'github.com/pyenv/pyenv/archive/refs/heads/master.tar.gz')
         self.version = version
@@ -122,6 +129,7 @@ class PulsarPythonDependency(PulsarDependencyDockerInstall):
             'libbz2-dev', 'libreadline-dev', 'libsqlite3-dev', 'libncursesw5-dev','libxml2-dev',
             'libxmlsec1-dev', 'libffi-dev', 'liblzma-dev'
         ])
+        yield RUN(f"test ! -d {self.INSTALL_FOLDER}")
 
     def _post_build(self):
         yield self.package_uninstall([
@@ -175,25 +183,25 @@ class PulsarPythonDependency(PulsarDependencyDockerInstall):
 
     def _build_stanza(self) -> List[str]:
         yield self.download(self.url)
-        yield f'./plugins/python-build/bin/python-build {self.version} /usr/local'
+        yield f"mkdir -p {self.INSTALL_FOLDER}"
+        yield f'./plugins/python-build/bin/python-build {self.version} {self.INSTALL_FOLDER}'
+        yield f'test -e {self.INSTALL_FOLDER}/include/python3.7m && ln -s {self.INSTALL_FOLDER}/include/python3.7m/ {self.INSTALL_FOLDER}/include/python3.7 || true'
         yield 'rm -rf $(pwd)'
 
 
 class PulsarBoostDependency(PulsarDependencyDockerInstall):
     def __init__(self, version):
         super(PulsarBoostDependency, self).__init__('boost', version, 'https://boostorg.jfrog.io/artifactory/main/release/{version}/source/boost_{version_underscore}.tar.gz')
-        # self.env = f'CPLUS_INCLUDE_PATH="$CPLUS_INCLUDE_PATH:/usr/local/include/python3.7m/" {self.env}'
 
     def _build_stanza(self) -> List[str]:
         yield self.download(self.url)
-        yield 'test -e /usr/local/include/python || ln -s /usr/local/include/python3.7m/ /usr/local/include/python3.7'
-        yield './bootstrap.sh --with-libraries=program_options,filesystem,thread,system,python,regex'
+        yield f'./bootstrap.sh --with-libraries=program_options,filesystem,thread,system,regex,python --with-python-root={PulsarPythonDependency.INSTALL_FOLDER}'
         yield './b2 cxxflags="${CXXFLAGS}" -d0 -q -j $(nproc) address-model=64 link=static threading=multi variant=release install'
         yield 'rm -rf $(pwd)'
 
 
 def dockerfile_lines():
-    base_image = 'arm64v8/debian:9'
+    base_image = 'debian:9'
 
     cmake = MakefileDependency(
         version='3.22.2',
@@ -253,7 +261,7 @@ def dockerfile_lines():
     ]
 
     template = [
-        f'FROM {base_image} AS {BASE_IMAGE_NAME}',
+        f'FROM --platform={PLATFORM} {base_image} AS {BASE_IMAGE_NAME}',
         RUN(
             'echo \'exec ls -lah "$@"\' > /usr/local/bin/ll',
             "chmod +x /usr/local/bin/ll",
@@ -273,7 +281,7 @@ def dockerfile_lines():
         )),
         # Curl is already present on some distributions. Python isn't on most Debians, but may be on others.
         PulsarDependencyDockerInstall.package_uninstall(('curl', 'python', 'python3', 'zlib1g-dev')),
-        RUN('rm -rf /usr/lib/python*'),
+        RUN('rm -rf /usr/lib/python* /usr/local/lib/python* /usr/local/bin/python*'),
         *cmake.execute_build(),
         *cmake.incorporate_build(),
     ]
@@ -282,12 +290,13 @@ def dockerfile_lines():
         template.extend(md.execute_build())
 
     boost = PulsarBoostDependency(version='1.72.0')
-    python = PulsarPythonDependency(version='3.7.12')
+    python = PulsarPythonDependency(version=PulsarPythonDependency.VERSION)
     template.extend((
         '\n',
         '#' * 120,
         f'FROM {BASE_IMAGE_NAME} AS pulsar_build_main',
         *python.execute_build(),
+        ENV('PATH', f'{PulsarPythonDependency.INSTALL_FOLDER}/bin:$PATH'),
         *boost.execute_build()
     ))
     for md in layer_dependencies:
@@ -297,19 +306,16 @@ def dockerfile_lines():
         ))
         template.extend(md.incorporate_build())
 
+    pypath = f"{PulsarPythonDependency.INSTALL_FOLDER}/bin/python"
     template.extend((
         RUN(
-            'python -m ensurepip --upgrade',
-            'python -m pip install --upgrade pip',
-            f'python -m pip install --upgrade pip six grpcio-tools==1.44.0 certifi auditwheel setuptools wheel',
-            'pip cache purge',
+            f'{pypath} -m ensurepip --upgrade',
+            f'{pypath} -m pip install --upgrade pip',
+            f'{pypath} -m pip install --upgrade pip six grpcio-tools==1.44.0 certifi auditwheel setuptools wheel',
+            f'{pypath} -m pip cache purge',
         ),
         COPY('./', '/pulsar/build/'),
         'WORKDIR /pulsar/build/pulsar-client-cpp',
-        RUN(
-            'test -e /usr/local/lib/python || ln -s /usr/local/lib/python* /usr/local/lib/python'
-            'test -e /usr/local/include/python || ln -s /usr/local/lib/python* /usr/local/include/python'
-        ),
         ENV('CXXFLAGS', ''),
         ENV('CFLAGS', ''),
         ENV('USE_FULL_POM_NAME', 'True'),
@@ -324,13 +330,13 @@ def dockerfile_lines():
         ),
         'WORKDIR /pulsar/build/pulsar-client-cpp/python',
         RUN(
-            'python setup.py bdist_wheel',
-            'auditwheel --verbose repair --plat manylinux_2_24_$(arch) dist/pulsar_client*.whl',
-            'pip install wheelhouse/*.whl',
+            f'{pypath} setup.py bdist_wheel',
+            f'{pypath} -mauditwheel --verbose repair --plat manylinux_2_24_$(arch) dist/pulsar_client*.whl',
+            f'{pypath} -mpip install wheelhouse/*.whl',
             'cd /',
-            'python -c "import pulsar"',
+            f'{pypath} -c "import pulsar"',
             # Make sure it works, and works in the presence of grpcio-tools.
-            'python -c "import logging; from grpc_tools.protoc import main as protoc; import pulsar;"',
+            f'{pypath} -c "import logging; from grpc_tools.protoc import main as protoc; import pulsar;"',
         ),
     ))
     return template

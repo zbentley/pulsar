@@ -221,7 +221,12 @@ endif()
 
 if (BUILD_PYTHON_WRAPPER)
     find_package(Python REQUIRED COMPONENTS Development)
-    set(BOOST_COMPONENTS ${BOOST_COMPONENTS} python37)
+    if(Python_VERSION_MAJOR GREATER_EQUAL 3)
+        MESSAGE(STATUS, "Building boost-python component python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}")
+        set(BOOST_COMPONENTS ${BOOST_COMPONENTS} python${Python_VERSION_MAJOR}${Python_VERSION_MINOR})
+    else()
+        set(BOOST_COMPONENTS ${BOOST_COMPONENTS} python)
+    endif()
 endif (BUILD_PYTHON_WRAPPER)
 
 set(BOOST_COMPONENTS ${BOOST_COMPONENTS} regex)
