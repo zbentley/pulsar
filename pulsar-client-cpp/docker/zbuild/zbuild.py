@@ -3,10 +3,6 @@ from abc import ABC, abstractmethod
 from typing import List, Iterable
 
 BASE_IMAGE_NAME = 'pulsar_build_common'
-# TODO make these configurable/matrix-based
-# PLATFORM = "linux/arm64"
-PLATFORM = "linux/amd64"
-
 
 class DockerInstruction(ABC):
     payload: str
@@ -29,6 +25,7 @@ class ENV(DockerInstruction):
         v = v.strip('"').strip("'")
         self.payload = f'{k}="{v}"'
 
+class ARG(ENV): ...
 
 class COPY(DockerInstruction):
     def __init__(self, src: str, target: str, copy_from=None):
@@ -114,13 +111,10 @@ class MakefileDependency(PulsarDependencyDockerInstall):
 
 
 class PulsarPythonDependency(PulsarDependencyDockerInstall):
-    VERSION = "3.8.13"  # TODO make configurable
-    BOOST_COMPONENT = f'python{int(VERSION.split(".")[0])}{int(VERSION.split(".")[1])}'
-    INSTALL_FOLDER = f"/usr/local/{BOOST_COMPONENT}"
+    INSTALL_FOLDER = "/usr/local/python3"
 
-    def __init__(self, version):
-        super(PulsarPythonDependency, self).__init__('python', version, 'github.com/pyenv/pyenv/archive/refs/heads/master.tar.gz')
-        self.version = version
+    def __init__(self):
+        super(PulsarPythonDependency, self).__init__('python', '${PYTHON_VERSION}', 'github.com/pyenv/pyenv/archive/refs/heads/master.tar.gz')
 
     def _pre_build(self):
         yield from super(PulsarPythonDependency, self)._pre_build()
@@ -181,11 +175,14 @@ class PulsarPythonDependency(PulsarDependencyDockerInstall):
             'xml-core'
         ])
 
+    def execute_build(self):
+        yield ARG('PYTHON_VERSION', '3.8.13')
+        yield from super().execute_build()
+
     def _build_stanza(self) -> List[str]:
         yield self.download(self.url)
-        yield f"mkdir -p {self.INSTALL_FOLDER}"
         yield f'./plugins/python-build/bin/python-build {self.version} {self.INSTALL_FOLDER}'
-        yield f'test -e {self.INSTALL_FOLDER}/include/python3.7m && ln -s {self.INSTALL_FOLDER}/include/python3.7m/ {self.INSTALL_FOLDER}/include/python3.7 || true'
+        yield f'if [ -e {self.INSTALL_FOLDER}/include/python3.7m ]; then ln -s {self.INSTALL_FOLDER}/include/python3.7m/ {self.INSTALL_FOLDER}/include/python3.7; fi'
         yield 'rm -rf $(pwd)'
 
 
@@ -195,21 +192,13 @@ class PulsarBoostDependency(PulsarDependencyDockerInstall):
 
     def _build_stanza(self) -> List[str]:
         yield self.download(self.url)
-        yield f'./bootstrap.sh --with-libraries=program_options,filesystem,thread,system,regex,python --with-python-root={PulsarPythonDependency.INSTALL_FOLDER}'
+        yield f'./bootstrap.sh --with-libraries=python,regex --with-python=python3 --with-python-root={PulsarPythonDependency.INSTALL_FOLDER}'
         yield './b2 cxxflags="${CXXFLAGS}" -d0 -q -j $(nproc) address-model=64 link=static threading=multi variant=release install'
         yield 'rm -rf $(pwd)'
 
 
 def dockerfile_lines():
     base_image = 'debian:9'
-
-    cmake = MakefileDependency(
-        version='3.22.2',
-        url='https://github.com/Kitware/CMake/archive/v{version}.tar.gz',
-        configure_stanza='./bootstrap --parallel=$(nproc)',
-        name='cmake',
-        inline=True,
-    )
 
     layer_dependencies = [
         # We install protobuf because most debian-distributed versions are both pretty old and not built with -fPIC
@@ -261,7 +250,7 @@ def dockerfile_lines():
     ]
 
     template = [
-        f'FROM --platform={PLATFORM} {base_image} AS {BASE_IMAGE_NAME}',
+        f'FROM {base_image} AS {BASE_IMAGE_NAME}',
         RUN(
             'echo \'exec ls -lah "$@"\' > /usr/local/bin/ll',
             "chmod +x /usr/local/bin/ll",
@@ -282,15 +271,14 @@ def dockerfile_lines():
         # Curl is already present on some distributions. Python isn't on most Debians, but may be on others.
         PulsarDependencyDockerInstall.package_uninstall(('curl', 'python', 'python3', 'zlib1g-dev')),
         RUN('rm -rf /usr/lib/python* /usr/local/lib/python* /usr/local/bin/python*'),
-        *cmake.execute_build(),
-        *cmake.incorporate_build(),
+        RUN('wget -c https://cmake.org/files/v3.22/cmake-3.22.6-linux-$(arch).tar.gz -O - | tar -xzC /usr/local --strip-components=1'),
     ]
 
     for md in layer_dependencies:
         template.extend(md.execute_build())
 
     boost = PulsarBoostDependency(version='1.72.0')
-    python = PulsarPythonDependency(version=PulsarPythonDependency.VERSION)
+    python = PulsarPythonDependency()
     template.extend((
         '\n',
         '#' * 120,
@@ -306,7 +294,7 @@ def dockerfile_lines():
         ))
         template.extend(md.incorporate_build())
 
-    pypath = f"{PulsarPythonDependency.INSTALL_FOLDER}/bin/python"
+    pypath = f"{PulsarPythonDependency.INSTALL_FOLDER}/bin/python3"
     template.extend((
         RUN(
             f'{pypath} -m ensurepip --upgrade',

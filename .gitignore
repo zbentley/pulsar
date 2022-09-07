@@ -47,6 +47,7 @@ target/
 
 # Python
 *.pyc
+.python-version
 
 # Perf tools
 *.hgrm
@@ -75,6 +76,7 @@ pulsar-client-cpp/dist
 
 # This is generated as part of the client build:
 pulsar-client-cpp/pkg/Dockerfile
+pulsar-client-cpp/docker/zbuild/Dockerfile
 
 # CI generated files
 .repository
