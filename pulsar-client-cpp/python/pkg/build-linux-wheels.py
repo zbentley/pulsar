@@ -10,9 +10,10 @@ import subprocess
 from functools import partial
 
 BASE_IMAGE_NAME = 'pulsar_build_common'
-REPO_ROOT = Path(__file__).parent.parent.parent.parent
+REPO_ROOT = Path(__file__).parent.parent.parent.parent.resolve()
 ARCHITECTURES = frozenset(("amd64", "arm64"))
 PYTHONS = frozenset(("3.7.16", "3.8.16", "3.10.10"))
+
 
 class DockerInstruction(ABC):
     payload: str
@@ -278,7 +279,7 @@ class PulsarClientBuild:
                 f'{pypath} -m auditwheel --verbose repair --plat {self.wheel_platform}_$(arch) dist/pulsar_client*.whl',
                 f'{pypath} -m pip install wheelhouse/*.whl',
                 # Dump the linker paths so people can check to make sure it's not linking to things it shouldn't
-                # f'ldd $({pypath} -c "import _pulsar; print(_pulsar.__file__)") > wheelhouse/{self.container_name()}.ldd'
+                f'ldd $({pypath} -c "import _pulsar; print(_pulsar.__file__)") > wheelhouse/{self.container_name()}.ldd',
                 # Self-tests: Make sure it works, and works in the presence of grpcio-tools.
                 'cd /',
                 f'{pypath} -c "import pulsar"',
