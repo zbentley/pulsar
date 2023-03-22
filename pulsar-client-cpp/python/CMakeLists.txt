@@ -17,7 +17,7 @@
 # under the License.
 #
 
-INCLUDE_DIRECTORIES("${Boost_INCLUDE_DIRS}" "${PYTHON_INCLUDE_DIRS}")
+INCLUDE_DIRECTORIES("${Boost_INCLUDE_DIRS}" "${Python_INCLUDE_DIRS}")
 
 ADD_LIBRARY(_pulsar SHARED src/pulsar.cc
                            src/producer.cc
@@ -35,9 +35,6 @@ ADD_LIBRARY(_pulsar SHARED src/pulsar.cc
 SET(CMAKE_SHARED_LIBRARY_PREFIX )
 SET(CMAKE_SHARED_LIBRARY_SUFFIX .so)
 
-if (NOT APPLE AND NOT MSVC)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_PYTHON}")
-endif()
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS} -Qunused-arguments -undefined dynamic_lookup")
@@ -60,8 +57,8 @@ if (NOT DEFINED ${Boost_PYTHON39-MT_LIBRARY})
   set(Boost_PYTHON39-MT_LIBRARY ${Boost_PYTHON39_LIBRARY})
 endif()
 
-if (NOT DEFINED ${Boost_PYTHON310-MT_LIBRARY})
-  set(Boost_PYTHON310-MT_LIBRARY ${Boost_PYTHON310_LIBRARY})
+if (NOT DEFINED ${Boost_PYTHON10-MT_LIBRARY})
+  set(Boost_PYTHON10-MT_LIBRARY ${Boost_PYTHON10_LIBRARY})
 endif()
 
 # Try all possible boost-python variable namings
@@ -74,8 +71,7 @@ set(PYTHON_WRAPPER_LIBS ${Boost_PYTHON_LIBRARY}
                         ${Boost_PYTHON36_LIBRARY}
                         ${Boost_PYTHON38_LIBRARY}
                         ${Boost_PYTHON39_LIBRARY}
-                        ${Boost_PYTHON310_LIBRARY}
-    )
+                        ${Boost_PYTHON310_LIBRARY})
 
 if (APPLE)
     if (Boost_PYTHON27-MT_LIBRARY_RELEASE)
@@ -90,9 +86,6 @@ if (APPLE)
     if (Boost_PYTHON39-MT_LIBRARY_RELEASE)
         set(PYTHON_WRAPPER_LIBS ${PYTHON_WRAPPER_LIBS} ${Boost_PYTHON39-MT_LIBRARY_RELEASE})
     endif ()
-    if (Boost_PYTHON310-MT_LIBRARY_RELEASE)
-        set(PYTHON_WRAPPER_LIBS ${PYTHON_WRAPPER_LIBS} ${Boost_PYTHON310-MT_LIBRARY_RELEASE})
-    endif ()
 endif()
 
 message(STATUS "Using Boost Python libs: ${PYTHON_WRAPPER_LIBS}")
@@ -105,8 +98,5 @@ if (APPLE)
     set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS} -undefined dynamic_lookup")
     target_link_libraries(_pulsar -Wl,-all_load pulsarStatic ${PYTHON_WRAPPER_LIBS} ${COMMON_LIBS} ${ICU_LIBS})
 else ()
-    if (NOT MSVC)
-      set (CMAKE_SHARED_LINKER_FLAGS " -static-libgcc  -static-libstdc++")
-    endif()
     target_link_libraries(_pulsar pulsarStatic ${PYTHON_WRAPPER_LIBS} ${COMMON_LIBS})
 endif ()
