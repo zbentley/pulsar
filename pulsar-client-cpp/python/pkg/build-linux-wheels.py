@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
+import argparse
+import platform
 from abc import ABC, abstractmethod
-from distutils.version import Version, StrictVersion
+from distutils.version import StrictVersion
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import List, Iterable
 import subprocess
 from functools import partial
 
-run = partial(subprocess.run, check=True)
-
 BASE_IMAGE_NAME = 'pulsar_build_common'
 REPO_ROOT = Path(__file__).parent.parent.parent.parent
+ARCHITECTURES = frozenset(("amd64", "arm64"))
+PYTHONS = frozenset(("3.7.16", "3.8.16", "3.10.10"))
+
 
 
 class DockerInstruction(ABC):
@@ -93,7 +96,7 @@ class PulsarDependencyDockerInstall(ABC):
 
 
 class MakefileDependency(PulsarDependencyDockerInstall):
-    def __init__(self, url: str, name: str, version: str, inline=False, configure_stanza='test -e configure && ./configure || true'):
+    def __init__(self, url: str, name: str, version: str, inline=False, configure_stanza=f'test -e configure && ./configure || true'):
         super(MakefileDependency, self).__init__(name, version, url)
         self.configure_stanza = configure_stanza
         self.inline = inline
@@ -124,11 +127,7 @@ class PulsarPythonDependency(PulsarDependencyDockerInstall):
     def _pre_build(self):
         yield from super(PulsarPythonDependency, self)._pre_build()
         yield ENV('CONFIGURE_OPTS', '--enable-shared')
-        yield self.package_install([
-            'libbz2-dev', 'libreadline-dev', 'libsqlite3-dev', 'libncursesw5-dev','libxml2-dev',
-            'libxmlsec1-dev', 'libffi-dev', 'liblzma-dev',             'zlib1g',
-            'zlib1g-dev',
-        ])
+
         yield RUN(f"test ! -d {self.INSTALL_FOLDER}")
 
     def _post_build(self):
@@ -199,10 +198,7 @@ class PulsarBoostDependency(PulsarDependencyDockerInstall):
         yield 'rm -rf $(pwd)'
 
 class PulsarClientBuild:
-    ARCHS = ('arm64', 'amd64')
-
-    def __init__(self, python: str, arch):
-        assert arch in self.ARCHS
+    def __init__(self, python: str, arch: str):
         self.arch = arch
         self.python = python
         # Python 3.10 added a dependency on openssl 1.1.1, which is only present on Debian 10. However, that requires
@@ -283,6 +279,10 @@ class PulsarClientBuild:
                 # 'find / | grep libcrypt | xargs -I{} cp {} /usr/lib/'
             ),
             PulsarDependencyDockerInstall.package_install((
+                'libbz2-dev', 'libreadline-dev', 'libsqlite3-dev', 'libncursesw5-dev', 'libxml2-dev',
+                'libxmlsec1-dev', 'libffi-dev', 'liblzma-dev',
+                'zlib1g',
+                'zlib1g-dev',
                 'build-essential',
                 'wget',
                 'libtool',
@@ -352,25 +352,52 @@ class PulsarClientBuild:
         ))
         return template
 
+def get_build_objects():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--architecture", choices=ARCHITECTURES | {"native"}, action="append", required=True)
+    parser.add_argument("--python", choices=PYTHONS | {"all"}, action="append", required=True)
+    config = parser.parse_args()
+    if "all" in config.python:
+        pythons = PYTHONS
+    else:
+        pythons = config.python
+    architectures = set()
+    native_arch = platform.machine().lower()
+    for arch in config.architecture:
+        if arch == "all":
+            architectures.update(ARCHITECTURES)
+        elif arch == "native":
+            assert native_arch in ARCHITECTURES
+            architectures.add(native_arch)
+        else:
+            architectures.add(arch)
+    builds = []
+    # Always build native first
+    for arch in sorted(architectures, key=lambda i: i != native_arch):
+        for python in sorted(pythons):
+            builds.append(PulsarClientBuild(python, arch))
+    return builds
 
 
 def main():
+    run = partial(subprocess.run, check=True)
+
     run(['docker', 'buildx', 'ls'])
-    for python in ('3.7.16', '3.8.16', '3.10.10',):
-        for arch in PulsarClientBuild.ARCHS:
-            build = PulsarClientBuild(python, arch)
-            print(f"About to build: {build}")
-            with NamedTemporaryFile(suffix='.Dockerfile') as dockerfile:
-                dockerfile.write("\n".join(map(str, build.dockerfile_lines())).encode())
-                dockerfile.flush()
-                container = build.container_name()
-                run(["docker", "buildx", "build", "-t", container, "--platform", f"linux/{build.arch}", "-f", dockerfile.name, str(REPO_ROOT)], cwd=str(REPO_ROOT))
-                run(["docker", "rm", "-f", container])
-                run(["docker",  "create", "--rm", "-ti", "--name", container, container, "true"])
-                run(["docker", "cp", f"{container}:/pulsar/build/pulsar-client-cpp/python/wheelhouse/.", f"{REPO_ROOT}/pulsar-client-cpp/python/wheelhouse"])
-            print(f"Successfully built: {build}")
+    assert REPO_ROOT.joinpath('pom.xml').is_file()
+    builds = get_build_objects()
 
-
+    for idx, build in enumerate(builds):
+        idx += 1
+        print(f"\n\n{idx}/{len(builds)}: About to build: {build}")
+        with NamedTemporaryFile(suffix='.Dockerfile') as dockerfile:
+            dockerfile.write("\n".join(map(str, build.dockerfile_lines())).encode())
+            dockerfile.flush()
+            container = build.container_name()
+            run(["docker", "buildx", "build", "-t", container, "--platform", f"linux/{build.arch}", "-f", dockerfile.name, '.'], cwd=str(REPO_ROOT))
+            run(["docker", "rm", "-f", container])
+            run(["docker",  "create", "--rm", "-ti", "--name", container, container, "true"])
+            run(["docker", "cp", f"{container}:/pulsar/build/pulsar-client-cpp/python/wheelhouse/.", f"{REPO_ROOT}/pulsar-client-cpp/python/wheelhouse"])
+        print(f"\n\n{idx}/{len(builds)}: Successfully built: {build}")
 
 
 if __name__ == '__main__':
