@@ -363,12 +363,11 @@ def main():
             with NamedTemporaryFile(suffix='.Dockerfile') as dockerfile:
                 dockerfile.write("\n".join(map(str, build.dockerfile_lines())).encode())
                 dockerfile.flush()
-                build_root = Path(__file__).parent.parent
                 container = build.container_name()
                 run(["docker", "buildx", "build", "-t", container, "--platform", f"linux/{build.arch}", "-f", dockerfile.name, str(REPO_ROOT)], cwd=str(REPO_ROOT))
                 run(["docker", "rm", "-f", container])
                 run(["docker",  "create", "--rm", "-ti", "--name", container, container, "true"])
-                run(["docker", "cp", f"{container}:/pulsar/build/pulsar-client-cpp/python/wheelhouse/.", f"{build_root}/wheelhouse"])
+                run(["docker", "cp", f"{container}:/pulsar/build/pulsar-client-cpp/python/wheelhouse/.", f"{REPO_ROOT}/pulsar-client-cpp/python/wheelhouse"])
             print(f"Successfully built: {build}")
 
 
