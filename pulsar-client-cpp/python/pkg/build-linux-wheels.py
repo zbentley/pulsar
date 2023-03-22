@@ -14,8 +14,6 @@ REPO_ROOT = Path(__file__).parent.parent.parent.parent
 ARCHITECTURES = frozenset(("amd64", "arm64"))
 PYTHONS = frozenset(("3.7.16", "3.8.16", "3.10.10"))
 
-
-
 class DockerInstruction(ABC):
     payload: str
 
@@ -63,10 +61,10 @@ class PulsarDependencyDockerInstall(ABC):
         yield COPY(self.workdir, self.workdir, copy_from=self.layer_name)
 
     @classmethod
-    def package_install(cls, packages: Iterable[str], unstable=False) -> DockerInstruction:
+    def package_install(cls, packages: Iterable[str]) -> DockerInstruction:
         return RUN(
             'apt update',
-            f'apt install {" ".join(sorted(packages))} {"-t unstable" if unstable else ""} -y',
+            f'apt install {" ".join(sorted(packages))} -y',
             'rm -rf /var/lib/apt/lists/*',
         )
 
@@ -81,7 +79,7 @@ class PulsarDependencyDockerInstall(ABC):
 
     @staticmethod
     def download(url: str) -> str:
-        return f'wget -c {url} -O - | tar -xzC . --strip-components=1'
+        return f'wget -qc {url} -O - | tar -xzC . --strip-components=1'
 
     @abstractmethod
     def _build_stanza(self) -> Iterable[DockerInstruction]:
@@ -96,15 +94,14 @@ class PulsarDependencyDockerInstall(ABC):
 
 
 class MakefileDependency(PulsarDependencyDockerInstall):
-    def __init__(self, url: str, name: str, version: str, inline=False, configure_stanza=f'test -e configure && ./configure || true'):
+    def __init__(self, url: str, name: str, version: str, configure_stanza=f'test -e configure && ./configure || true'):
         super(MakefileDependency, self).__init__(name, version, url)
         self.configure_stanza = configure_stanza
-        self.inline = inline
 
     def execute_build(self) -> str:
         yield '\n' + '#' * 120
-        if not self.inline:
-            yield f'FROM {BASE_IMAGE_NAME} AS {self.layer_name}'
+        yield f'FROM {BASE_IMAGE_NAME} AS {self.layer_name}'
+        yield ENV('CMAKE_BUILD_PARALLEL_LEVEL', '4')
         yield from super(MakefileDependency, self).execute_build()
 
     def _build_stanza(self) -> List[str]:
@@ -113,79 +110,8 @@ class MakefileDependency(PulsarDependencyDockerInstall):
         yield 'make -j$(nproc)'
 
     def incorporate_build(self):
-        if not self.inline:
-            yield from super(MakefileDependency, self).incorporate_build()
+        yield from super(MakefileDependency, self).incorporate_build()
         yield RUN(f'cd {self.workdir}', 'make install', f'rm -rf {self.workdir}', 'ldconfig')
-
-
-class PulsarPythonDependency(PulsarDependencyDockerInstall):
-    INSTALL_FOLDER = "/usr/local/python3"
-
-    def __init__(self, python_version):
-        super(PulsarPythonDependency, self).__init__('python', str(python_version), 'github.com/pyenv/pyenv/archive/refs/heads/master.tar.gz')
-
-    def _pre_build(self):
-        yield from super(PulsarPythonDependency, self)._pre_build()
-        yield ENV('CONFIGURE_OPTS', '--enable-shared')
-
-        yield RUN(f"test ! -d {self.INSTALL_FOLDER}")
-
-    def _post_build(self):
-        yield self.package_uninstall([
-            'bzip2-doc',
-            'icu-devtools',
-            'libbz2-dev',
-            'libffi-dev',
-            'libgcrypt20-dev',
-            'libglib2.0-0',
-            'libglib2.0-data',
-            'libgmp-dev',
-            'libgmpxx4ldbl',
-            'libgnutls-dane0',
-            'libgnutls-openssl27',
-            'libgnutls28-dev',
-            'libgnutlsxx28',
-            'libgpg-error-dev',
-            'libidn11-dev',
-            'liblzma-dev',
-            'libncursesw5-dev',
-            'libnspr4',
-            'libnspr4-dev',
-            'libnss3',
-            'libnss3-dev',
-            'libp11-kit-dev',
-            'libreadline-dev',
-            'libsqlite3-dev',
-            'libtasn1-6-dev',
-            'libtasn1-doc',
-            'libtinfo-dev',
-            'libxml2',
-            'libxml2-dev',
-            'libxmlsec1',
-            'libxmlsec1-dev',
-            'libxmlsec1-gcrypt',
-            'libxmlsec1-gnutls',
-            'libxmlsec1-nss',
-            'libxmlsec1-openssl',
-            'libxslt1-dev',
-            'libxslt1.1',
-            'nettle-dev',
-            'pkg-config',
-            'sgml-base',
-            'shared-mime-info',
-            'xdg-user-dirs',
-            'xml-core'
-        ])
-
-    def execute_build(self):
-        yield from super().execute_build()
-
-    def _build_stanza(self) -> List[str]:
-        yield self.download(self.url)
-        yield f'./plugins/python-build/bin/python-build {self.version} {self.INSTALL_FOLDER} || cat /tmp/python-build* 1>&2 | grep nonex'
-        yield f'if [ -e {self.INSTALL_FOLDER}/include/python3.7m ]; then ln -s {self.INSTALL_FOLDER}/include/python3.7m/ {self.INSTALL_FOLDER}/include/python3.7; fi'
-        yield 'rm -rf $(pwd)'
-
 
 class PulsarBoostDependency(PulsarDependencyDockerInstall):
     def __init__(self, version):
@@ -193,7 +119,7 @@ class PulsarBoostDependency(PulsarDependencyDockerInstall):
 
     def _build_stanza(self) -> List[str]:
         yield self.download(self.url)
-        yield f'./bootstrap.sh --with-libraries=python,regex --with-python=python3 --with-python-root={PulsarPythonDependency.INSTALL_FOLDER}'
+        yield f'./bootstrap.sh --with-libraries=python,regex --with-python=python3'
         yield './b2 cxxflags="${CXXFLAGS}" -d0 -q -j $(nproc) address-model=64 link=static threading=multi variant=release install'
         yield 'rm -rf $(pwd)'
 
@@ -265,6 +191,12 @@ class PulsarClientBuild:
                 configure_stanza='cmake .',
                 name='gtest',
             ),
+            MakefileDependency(
+                name='python',
+                version=self.python,
+                configure_stanza='./configure --enable-shared',
+                url='https://www.python.org/ftp/python/{version}/Python-{version}.tgz',
+            )
         ]
 
         template = [
@@ -274,15 +206,16 @@ class PulsarClientBuild:
                 "chmod +x /usr/local/bin/ll",
                 "mkdir -p /pulsar/scratch",
                 "mkdir -p /pulsar/build",
-                # 'echo \'deb http://deb.debian.org/debian unstable main\' >> /etc/apt/sources.list',
-                # # Work around https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=993755:
-                # 'find / | grep libcrypt | xargs -I{} cp {} /usr/lib/'
             ),
             PulsarDependencyDockerInstall.package_install((
-                'libbz2-dev', 'libreadline-dev', 'libsqlite3-dev', 'libncursesw5-dev', 'libxml2-dev',
-                'libxmlsec1-dev', 'libffi-dev', 'liblzma-dev',
+                # Python dependencies:
+                'libbz2-dev',
+                'libffi-dev',
+                'liblzma-dev',
                 'zlib1g',
                 'zlib1g-dev',
+                # General dependencies:
+                'pkg-config',
                 'build-essential',
                 'wget',
                 'libtool',
@@ -292,23 +225,21 @@ class PulsarClientBuild:
                 'xz-utils',
             )),
             # Curl is already present on some distributions. Python isn't on most Debians, but may be on others.
-            PulsarDependencyDockerInstall.package_uninstall(('curl', 'python', 'python3', 'zlib1g-dev')),
+            PulsarDependencyDockerInstall.package_uninstall(('curl', 'python', 'python3', 'cmake')),
             RUN('rm -rf /usr/lib/python* /usr/local/lib/python* /usr/local/bin/python*'),
-            RUN('wget -c https://cmake.org/files/v3.22/cmake-3.22.6-linux-$(arch).tar.gz -O - | tar -xzC /usr/local --strip-components=1'),
+            # We need cmake at version at least 3.22, but older debians don't provide that, so we install it from their binaries directly:
+            RUN('wget -qc https://cmake.org/files/v3.22/cmake-3.22.6-linux-$(arch).tar.gz -O - | tar -xzC /usr/local --strip-components=1'),
         ]
 
         for md in layer_dependencies:
             template.extend(md.execute_build())
 
         boost = PulsarBoostDependency(version='1.78.0')
-        python = PulsarPythonDependency(self.python)
+
         template.extend((
             '\n',
             '#' * 120,
             f'FROM {BASE_IMAGE_NAME} AS pulsar_build_main',
-            *python.execute_build(),
-            ENV('PATH', f'{PulsarPythonDependency.INSTALL_FOLDER}/bin:$PATH'),
-            *boost.execute_build()
         ))
         for md in layer_dependencies:
             template.extend((
@@ -316,13 +247,14 @@ class PulsarClientBuild:
                 f'# Incorporate build {md.layer_name}'
             ))
             template.extend(md.incorporate_build())
+        template.extend(boost.execute_build())
 
-        pypath = f"{PulsarPythonDependency.INSTALL_FOLDER}/bin/python3"
+        pypath = f"/usr/local/bin/python3"
         template.extend((
             RUN(
                 f'{pypath} -m ensurepip --upgrade',
                 f'{pypath} -m pip install --upgrade pip',
-                f'{pypath} -m pip install --upgrade pip six grpcio-tools==1.44.0 certifi auditwheel==5.1.2 setuptools wheel',
+                f'{pypath} -m pip install --upgrade pip six setuptools wheel grpcio-tools==1.47.5 certifi auditwheel==5.1.2',
                 f'{pypath} -m pip cache purge',
             ),
             COPY(f'./', '/pulsar/build/'),
@@ -330,6 +262,7 @@ class PulsarClientBuild:
             ENV('CXXFLAGS', ''),
             ENV('CFLAGS', ''),
             ENV('USE_FULL_POM_NAME', 'True'),
+            ENV('CMAKE_BUILD_PARALLEL_LEVEL', '4'),
             RUN(
                 'find . -name CMakeCache.txt | xargs -r rm -rf',
                 'find . -name CMakeFiles | xargs -r rm -rf',
@@ -344,15 +277,18 @@ class PulsarClientBuild:
                 f'{pypath} setup.py bdist_wheel',
                 f'{pypath} -m auditwheel --verbose repair --plat {self.wheel_platform}_$(arch) dist/pulsar_client*.whl',
                 f'{pypath} -m pip install wheelhouse/*.whl',
+                # Dump the linker paths so people can check to make sure it's not linking to things it shouldn't
+                # f'ldd $({pypath} -c "import _pulsar; print(_pulsar.__file__)") > wheelhouse/{self.container_name()}.ldd'
+                # Self-tests: Make sure it works, and works in the presence of grpcio-tools.
                 'cd /',
                 f'{pypath} -c "import pulsar"',
-                # Make sure it works, and works in the presence of grpcio-tools.
                 f'{pypath} -c "import logging; from grpc_tools.protoc import main as protoc; import pulsar;"',
             ),
         ))
         return template
 
-def get_build_objects():
+
+def get_build_objects() -> List[PulsarClientBuild]:
     parser = argparse.ArgumentParser()
     parser.add_argument("--architecture", choices=ARCHITECTURES | {"native"}, action="append", required=True)
     parser.add_argument("--python", choices=PYTHONS | {"all"}, action="append", required=True)
@@ -381,10 +317,12 @@ def get_build_objects():
 
 def main():
     run = partial(subprocess.run, check=True)
-
+    # Make sure things are up and configured properly
     run(['docker', 'buildx', 'ls'])
     assert REPO_ROOT.joinpath('pom.xml').is_file()
     builds = get_build_objects()
+    output = Path(f"{REPO_ROOT}/pulsar-client-cpp/python/wheelhouse")
+    output.mkdir(exist_ok=True)
 
     for idx, build in enumerate(builds):
         idx += 1
@@ -396,7 +334,7 @@ def main():
             run(["docker", "buildx", "build", "-t", container, "--platform", f"linux/{build.arch}", "-f", dockerfile.name, '.'], cwd=str(REPO_ROOT))
             run(["docker", "rm", "-f", container])
             run(["docker",  "create", "--rm", "-ti", "--name", container, container, "true"])
-            run(["docker", "cp", f"{container}:/pulsar/build/pulsar-client-cpp/python/wheelhouse/.", f"{REPO_ROOT}/pulsar-client-cpp/python/wheelhouse"])
+            run(["docker", "cp", f"{container}:/pulsar/build/pulsar-client-cpp/python/wheelhouse/.", str(output)])
         print(f"\n\n{idx}/{len(builds)}: Successfully built: {build}")
 
 
