@@ -356,7 +356,7 @@ class PulsarClientBuild:
 
 def main():
     run(['docker', 'buildx', 'ls'])
-    for python in ('3.10.9',):
+    for python in ('3.7.16', '3.8.16', '3.10.10',):
         for arch in PulsarClientBuild.ARCHS:
             build = PulsarClientBuild(python, arch)
             print(f"About to build: {build}")
