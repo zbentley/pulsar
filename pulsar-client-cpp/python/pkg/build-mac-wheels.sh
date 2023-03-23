@@ -22,7 +22,13 @@ set -e
 
 PYTHON_VERSIONS=(
    '3.8  3.8.16'
+   '3.10  3.10.10'
 )
+
+if [[ $_ != "$(which env)" ]]; then
+  echo "Must be run with env -i: $(env)"
+  exit 1
+fi
 
 export MACOSX_DEPLOYMENT_TARGET=10.15
 MACOSX_DEPLOYMENT_TARGET_MAJOR=${MACOSX_DEPLOYMENT_TARGET%%.*}
@@ -42,7 +48,7 @@ export PATH='/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/opt/cmak
 # Compile and cache dependencies
 CACHE_DIR=~/.pulsar-mac-wheels-cache
 mkdir -p $CACHE_DIR
-
+mkdir -p python/wheelhouse
 cd $CACHE_DIR
 
 PREFIX=$CACHE_DIR/install
@@ -55,7 +61,7 @@ if [ ! -f zlib-${ZLIB_VERSION}/.done ]; then
     tar xvfz zlib-$ZLIB_VERSION.tar.gz
     pushd zlib-$ZLIB_VERSION
       CFLAGS="-fPIC -O3 -arch arm64 -arch x86_64 -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}" ./configure --prefix=$PREFIX
-      make -j16
+      make -j$(nproc)
       make install
       touch .done
     popd
@@ -73,7 +79,7 @@ if [ ! -f openssl-OpenSSL_${OPENSSL_VERSION}.done ]; then
     pushd openssl-OpenSSL_${OPENSSL_VERSION}-arm64
       CFLAGS="-fPIC -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}" \
           ./Configure --prefix=$PREFIX no-shared darwin64-arm64-cc
-      make -j8
+      make -j$(nproc)
       make install_sw
     popd
 
@@ -82,7 +88,7 @@ if [ ! -f openssl-OpenSSL_${OPENSSL_VERSION}.done ]; then
     pushd openssl-OpenSSL_${OPENSSL_VERSION}-x86_64
       CFLAGS="-fPIC -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}" \
           ./Configure --prefix=$PREFIX no-shared darwin64-x86_64-cc
-      make -j8
+      make -j$(nproc)
       make install_sw
     popd
 
@@ -123,7 +129,7 @@ for line in "${PYTHON_VERSIONS[@]}"; do
           CFLAGS="-fPIC -O3 -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET} -I${PREFIX}/include" \
               LDFLAGS=" ${PY_CFLAGS} -L${PREFIX}/lib" \
               ./configure --prefix=$PY_PREFIX --enable-shared --enable-universalsdk --with-universal-archs=${UNIVERSAL_ARCHS}
-          make -j16
+          make -j$(nproc)
           make install
 
           curl -O -L https://files.pythonhosted.org/packages/27/d6/003e593296a85fd6ed616ed962795b2f87709c3eee2bca4f6d0fe55c6d00/wheel-0.37.1-py2.py3-none-any.whl
@@ -166,14 +172,13 @@ for line in "${PYTHON_VERSIONS[@]}"; do
                     : ${PY_PREFIX}/lib
                   ;
 EOF
-          ./bootstrap.sh --with-libraries=python --with-python=python3 --with-python-root=$PY_PREFIX \
+          ./bootstrap.sh --with-libraries=python,regex --with-python=python3 --with-python-root=$PY_PREFIX \
                 --prefix=$CACHE_DIR/boost-py-$PYTHON_VERSION
           ./b2 address-model=64 cxxflags="-fPIC -arch arm64 -arch x86_64 -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}" \
                     link=static threading=multi \
-                    --with-libraries=python,regex \
                     --user-config=./user-config.jam \
                     variant=release python=${PYTHON_VERSION} \
-                    -j16 \
+                    -j$(nproc) \
                     install
           touch .done
         popd
@@ -193,7 +198,7 @@ if [ ! -f protobuf-${PROTOBUF_VERSION}/.done ]; then
     pushd protobuf-${PROTOBUF_VERSION}
       CXXFLAGS="-fPIC -arch arm64 -arch x86_64 -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}" \
             ./configure --prefix=$PREFIX
-      make -j16
+      make -j$(nproc)
       make install
       touch .done
     popd
@@ -208,7 +213,7 @@ if [ ! -f zstd-${ZSTD_VERSION}/.done ]; then
     tar xvfz zstd-${ZSTD_VERSION}.tar.gz
     pushd zstd-${ZSTD_VERSION}
       CFLAGS="-fPIC -O3 -arch arm64 -arch x86_64 -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}" PREFIX=$PREFIX \
-            make -j16 install
+            make -j$(nproc) install
       touch .done
     popd
 else
@@ -223,7 +228,7 @@ if [ ! -f snappy-${SNAPPY_VERSION}/.done ]; then
     pushd snappy-${SNAPPY_VERSION}
       CXXFLAGS="-fPIC -O3 -arch arm64 -arch x86_64 -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}" \
             ./configure --prefix=$PREFIX
-      make -j16
+      make -j$(nproc)
       make install
       touch .done
     popd
@@ -242,7 +247,7 @@ if [ ! -f curl-${CURL_VERSION}/.done ]; then
             ./configure --with-ssl=$PREFIX \
               --without-nghttp2 --without-libidn2 --disable-ldap \
               --prefix=$PREFIX
-      make -j16 install
+      make -j$(nproc) install
       touch .done
     popd
 else
@@ -288,16 +293,18 @@ for line in "${PYTHON_VERSIONS[@]}"; do
             -DCMAKE_CXX_FLAGS=-I$PREFIX/include \
             -DBoost_INCLUDE_DIR=$CACHE_DIR/boost-py-$PYTHON_VERSION/include \
             -DBoost_LIBRARY_DIR=$CACHE_DIR/boost-py-$PYTHON_VERSION/lib \
-            -DPYTHON_INCLUDE_DIR=$PY_INCLUDE_DIR \
-            -DPYTHON_LIBRARY=$PY_PREFIX/lib/libpython${PYTHON_VERSION}.dylib \
+            -DPython_ROOT_DIR=${PY_PREFIX} \
             -DLINK_STATIC=ON \
             -DBUILD_TESTS=OFF \
             -DBUILD_WIRESHARK=OFF \
             -DPROTOC_PATH=$PREFIX/bin/protoc
 
     make clean
-    make _pulsar -j16
+    make _pulsar -j$(nproc)
 
     cd python
     $PY_EXE setup.py bdist_wheel
+    for file in dist/*.whl; do
+      mv "$file" wheelhouse/
+    done
 done
